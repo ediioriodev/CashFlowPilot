@@ -1,0 +1,49 @@
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Cash Flow Pilot",
+  description: "Gestisci le tue spese in modo semplice",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Cash Flow Pilot",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // App-like feel
+};
+
+import { AuthProvider } from "@/context/AuthContext";
+import { ScopeProvider } from "@/context/ScopeContext";
+import { Toaster } from "sonner";
+import Header from "@/components/layout/Header";
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="it">
+      <body className={`${inter.className} antialiased bg-gray-50 text-gray-900`}>
+        <AuthProvider>
+          <ScopeProvider>
+            <Header />
+            {children}
+            <Toaster position="top-right" richColors />
+          </ScopeProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
