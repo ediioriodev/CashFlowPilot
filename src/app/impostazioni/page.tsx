@@ -1,55 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import { userService, UserSettings } from "@/services/userService";
+import { UserSettings } from "@/services/userService";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useScope } from "@/context/ScopeContext";
-import { ArrowLeft, Bell, Trash2, Shield, Moon, Wallet } from "lucide-react";
-import Link from "next/link";
+import { Shield, Moon, Wallet, Receipt } from "lucide-react";
 import clsx from "clsx";
+import { toast } from "sonner";
 
 export default function ImpostazioniPage() {
+  const { settings, updateSettings, loading } = useAuth();
+  const { toggleTheme, isDarkMode } = useTheme();
   const { refreshScope } = useScope();
-  const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<UserSettings | null>(null);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  const loadSettings = async () => {
-    try {
-      const data = await userService.getSettings();
-      setSettings(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateSetting = async (key: keyof UserSettings, value: any) => {
+  // Handle other settings updates normally
+  const handleUpdate = async (key: keyof UserSettings, value: any) => {
     if (!settings) return;
+    
+    // Use dedicated theme toggle for dark mode
+    if (key === 'dark_mode') {
+        await toggleTheme();
+        return;
+    }
     
     // Validation for Portfolio Visibility
     if ((key === 'show_personal_expenses' || key === 'show_shared_expenses') && value === false) {
       const otherKey = key === 'show_personal_expenses' ? 'show_shared_expenses' : 'show_personal_expenses';
-      // If the other one is already false (should technically not happen if logic works) 
-      // OR if we are about to make the current one false, we rely on the other one being true.
+      
       if (!settings[otherKey]) {
-         // Prevent turning off the last enabled scope
-         // Since we don't have a toast library connected here (except sonner in layout, but not imported), alert is fallback
-         // But wait, layout has Toaster. I can use toast from sonner.
-         // Let's just prevent update for now silently or console.error, UI will just toggle back effectively if I don't update state.
+         toast.error("Devi mantenere visibile almeno un portafoglio.");
          return; 
       }
     }
 
-    // Optimistic update
-    setSettings({ ...settings, [key]: value });
-
     try {
-      await userService.updateSettings({ [key]: value });
+      await updateSettings({ [key]: value });
       
       // Refresh scope context if visibility changed
       if (key === 'show_personal_expenses' || key === 'show_shared_expenses') {
@@ -57,8 +43,7 @@ export default function ImpostazioniPage() {
       }
     } catch (error) {
       console.error(error);
-      // Revert on error
-      loadSettings(); 
+      toast.error("Errore durante l'aggiornamento delle impostazioni");
     }
   };
 
@@ -66,92 +51,101 @@ export default function ImpostazioniPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-gray-50 pb-20 dark:bg-gray-950">
         <main className="max-w-lg mx-auto mt-4 space-y-4 px-4">
-            <h1 className="text-2xl font-bold text-gray-800 mb-6">Impostazioni</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Impostazioni</h1>
             
             {/* Wallet Visibility Section */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-indigo-600" />
-                    <h2 className="font-semibold text-gray-800">Portafogli</h2>
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Portafogli</h2>
                 </div>
                 
                 <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className="text-gray-700">Portafoglio Personale</span>
+                        <span className="text-gray-700 dark:text-gray-300">Portafoglio Personale</span>
                         <Toggle 
                             checked={settings.show_personal_expenses} 
-                            onChange={(v) => updateSetting('show_personal_expenses', v)} 
+                            onChange={(v) => handleUpdate('show_personal_expenses', v)} 
                         />
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-gray-700">Portafoglio Condiviso</span>
+                        <span className="text-gray-700 dark:text-gray-300">Portafoglio Condiviso</span>
                         <Toggle 
                             checked={settings.show_shared_expenses} 
-                            onChange={(v) => updateSetting('show_shared_expenses', v)} 
+                            onChange={(v) => handleUpdate('show_shared_expenses', v)} 
                         />
                     </div>
                 </div>
             </div>
 
-            {/* Notification Section */}
-            {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-blue-600" />
-                    <h2 className="font-semibold text-gray-800">Notifiche</h2>
+            {/* General Settings */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Generali</h2>
                 </div>
                 
                 <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between">
-                        <span className="text-gray-700">Abilita Notifiche</span>
+                        <span className="text-gray-700 dark:text-gray-300">Conferma Eliminazione</span>
                         <Toggle 
-                            checked={settings.notifications_enabled} 
-                            onChange={(v) => updateSetting('notifications_enabled', v)} 
+                            checked={settings.del_confirm} 
+                            onChange={(v) => handleUpdate('del_confirm', v)} 
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Periodo Fiscale */}
+            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                    <Receipt className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Periodo Fiscale</h2>
+                </div>
+                
+                <div className="p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                           <span className="block text-gray-700 dark:text-gray-300">Periodo Personalizzato</span>
+                           <span className="text-xs text-gray-400 dark:text-gray-500">Attiva per cambiare il giorno di inizio del mese.</span>
+                        </div>
+                        <Toggle 
+                            checked={Boolean(settings.custom_period_active)} 
+                            onChange={(v) => handleUpdate('custom_period_active', v)} 
                         />
                     </div>
                     
-                    {settings.notifications_enabled && (
-                        <div className="flex items-center justify-between">
-                            <span className="text-gray-700">Orario promemoria</span>
-                            <input 
-                                type="time" 
-                                value={settings.notification_time || "19:30"}
-                                onChange={(e) => updateSetting('notification_time', e.target.value)}
-                                className="bg-gray-50 border border-gray-200 rounded-md px-2 py-1 focus:outline-blue-500"
-                            />
-                        </div>
+                    {settings.custom_period_active && (
+                       <div className="flex items-center justify-between mt-4 pl-2 border-l-2 border-green-100 dark:border-green-900">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Giorno di Inizio Mese</span>
+                          <select
+                            value={settings.custom_period_start_day || 1}
+                            onChange={(e) => handleUpdate('custom_period_start_day', Number(e.target.value))}
+                            className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-sm focus:outline-green-500 text-gray-900 dark:text-gray-100"
+                          >
+                             {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                <option key={day} value={day}>{day}</option>
+                             ))}
+                          </select>
+                       </div>
                     )}
-                </div>
-            </div> */}
-
-            {/* General Settings */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-gray-600" />
-                    <h2 className="font-semibold text-gray-800">Generali</h2>
-                </div>
-                
-                <div className="p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-700">Conferma Eliminazione</span>
-                        <Toggle 
-                            checked={settings.del_confirm} 
-                            onChange={(v) => updateSetting('del_confirm', v)} 
-                        />
-                    </div>
                 </div>
             </div>
 
-             {/* Dark Mode (Future Proofing UI) */}
-             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden opacity-50">
-                <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-                    <Moon className="w-5 h-5 text-purple-600" />
-                    <h2 className="font-semibold text-gray-800">Aspetto</h2>
+             {/* Dark Mode */}
+             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                    <Moon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Aspetto</h2>
                 </div>
                 <div className="p-4 flex items-center justify-between">
-                    <span className="text-gray-700">Tema Scuro (Presto disponibile)</span>
-                    <Toggle checked={settings.dark_mode} onChange={() => {}} disabled />
+                    <span className="text-gray-700 dark:text-gray-300">Tema Scuro</span>
+                    <Toggle 
+                        checked={isDarkMode} 
+                        onChange={() => toggleTheme()} 
+                    />
                 </div>
             </div>
 
@@ -168,14 +162,14 @@ function Toggle({ checked, onChange, disabled = false }: { checked: boolean, onC
             onClick={() => onChange(!checked)}
             className={clsx(
                 "w-12 h-6 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none",
-                checked ? "bg-blue-600" : "bg-gray-300",
+                checked ? "bg-blue-600 dark:bg-blue-500" : "bg-gray-300 dark:bg-gray-600",
                 disabled && "opacity-50 cursor-not-allowed"
             )}
         >
             <div 
                 className={clsx(
                     "w-4 h-4 rounded-full bg-white absolute top-1 transition-transform duration-200 ease-in-out",
-                    checked ? "left-7" : "left-1"
+                    checked ? "translate-x-7" : "translate-x-1"
                 )}
             />
         </button>

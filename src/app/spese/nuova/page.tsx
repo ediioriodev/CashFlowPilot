@@ -100,26 +100,26 @@ export default function NuovaTransazionePage() {
 
   return (
     <ProtectedRoute>
-      <div className={clsx("min-h-screen pb-20 transition-colors duration-300", scope === 'P' ? "bg-gray-50/90" : "bg-gray-50")}>
+      <div className={clsx("min-h-screen pb-20 transition-colors duration-300", scope === 'P' ? "bg-gray-50/90 dark:bg-gray-950/90" : "bg-gray-50 dark:bg-gray-950")}>
         {/* Header removed - using global Header */}
 
         <main className="p-4 max-w-lg mx-auto">
           
-          <h2 className={clsx("text-lg font-bold mb-4 flex items-center gap-2", scope === 'P' ? "text-indigo-800" : "text-gray-800")}>
+          <h2 className={clsx("text-lg font-bold mb-4 flex items-center gap-2", scope === 'P' ? "text-indigo-800 dark:text-indigo-300" : "text-gray-800 dark:text-gray-100")}>
              Nuova Transazione ({scope === 'P' ? 'Personale' : 'Condivisa'})
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             
              {/* Toggle Tipo */}
-             <div className="flex bg-gray-200 p-1 rounded-lg">
-                <button type="button" onClick={() => setTipoTransazione('spesa')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'spesa' ? "bg-white text-red-600 shadow-sm" : "text-gray-600 hover:text-gray-800")}>Uscita</button>
-                <button type="button" onClick={() => setTipoTransazione('entrata')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'entrata' ? "bg-white text-green-600 shadow-sm" : "text-gray-600 hover:text-gray-800")}>Entrata</button>
+             <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-lg">
+                <button type="button" onClick={() => setTipoTransazione('spesa')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'spesa' ? "bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 shadow-sm" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200")}>Uscita</button>
+                <button type="button" onClick={() => setTipoTransazione('entrata')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'entrata' ? "bg-white dark:bg-gray-700 text-green-600 dark:text-green-400 shadow-sm" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200")}>Entrata</button>
              </div>
 
             {/* Importo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Importo (€)
               </label>
               <input
@@ -130,15 +130,15 @@ export default function NuovaTransazionePage() {
                 onChange={(e) => setImporto(e.target.value)}
                 placeholder="0.00"
                 className={clsx(
-                    "w-full px-4 py-3 text-2xl font-bold text-gray-800 border-2 rounded-xl focus:outline-none bg-white",
-                    scope === 'P' ? "border-indigo-100 focus:border-indigo-500" : "border-gray-200 focus:border-blue-500"
+                    "w-full px-4 py-3 text-2xl font-bold text-gray-800 dark:text-gray-100 border-2 rounded-xl focus:outline-none bg-white dark:bg-gray-800 placeholder:text-gray-400",
+                    scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500" : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
                 )}
               />
             </div>
 
             {/* Data */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data</label>
               <div className="relative">
                 <input
                   type="date"
@@ -146,8 +146,8 @@ export default function NuovaTransazionePage() {
                   value={dataSpesa}
                   onChange={(e) => setDataSpesa(e.target.value)}
                   className={clsx(
-                    "w-full px-4 py-3 border rounded-xl focus:outline-none bg-white",
-                    scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700"
+                    "w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800",
+                    scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400"
                   )}
                 />
                 <Calendar className="absolute right-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -156,14 +156,14 @@ export default function NuovaTransazionePage() {
 
             {/* Ambito */}
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Ambito</label>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambito</label>
                <input 
                  type="text"
                  list="ambiti-list-new"
                  required 
                  value={ambito} 
                  onChange={(e) => setAmbito(e.target.value)} 
-                 className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white", scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700")}
+                 className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")}
                  placeholder="Seleziona o scrivi nuovo..."
                />
                <datalist id="ambiti-list-new">
@@ -173,32 +173,32 @@ export default function NuovaTransazionePage() {
 
             {/* Negozio */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Negozio / Beneficiario</label>
-              <input type="text" list="negozi-list" value={negozio} onChange={(e) => setNegozio(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white", scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700")} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Negozio / Beneficiario</label>
+              <input type="text" list="negozi-list" value={negozio} onChange={(e) => setNegozio(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")} />
               <datalist id="negozi-list">{negoziSuggestions.map((n, i) => <option key={i} value={n} />)}</datalist>
             </div>
 
             {/* Note */}
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Note (Opzionale)</label>
-               <textarea value={note} onChange={(e) => setNote(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white", scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700")} rows={2} />
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note (Opzionale)</label>
+               <textarea value={note} onChange={(e) => setNote(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")} rows={2} />
             </div>
 
             {/* Recurring Toggle */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
                <div className="flex items-center justify-between">
                    <div className="flex items-center gap-2">
                        <Repeat className="w-5 h-5 text-orange-600" />
-                       <span className="font-semibold text-gray-700">Ricorrente</span>
+                       <span className="font-semibold text-gray-700 dark:text-gray-100">Ricorrente</span>
                    </div>
                    <ToggleSwitch checked={isRecurring} onChange={setIsRecurring} />
                </div>
 
                {isRecurring && (
-                   <div className="mt-4 pt-4 border-t border-gray-100 space-y-4 animate-in fade-in slide-in-from-top-2">
+                   <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4 animate-in fade-in slide-in-from-top-2">
                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1 ">Frequenza</label>
-                            <select value={ricorrenza} onChange={(e) => setRicorrenza(e.target.value as any)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none", scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700")}>
+                            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1 ">Frequenza</label>
+                            <select value={ricorrenza} onChange={(e) => setRicorrenza(e.target.value as any)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100")}>
                                 <option value="giornaliera">Ogni Giorno</option>
                                 <option value="settimanale">Ogni Settimana</option>
                                 <option value="mensile">Ogni Mese</option>
@@ -211,7 +211,7 @@ export default function NuovaTransazionePage() {
                         
                         {ricorrenza === 'settimanale' && (
                            <div>
-                               <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Giorni della Settimana</label>
+                               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Giorni della Settimana</label>
                                <div className="flex flex-wrap gap-2">
                                   {['L','M','M','G','V','S','D'].map((day, idx) => {
                                       // 1 = Monday, 7 = Sunday
@@ -227,7 +227,7 @@ export default function NuovaTransazionePage() {
                                             }}
                                             className={clsx(
                                                 "w-8 h-8 rounded-full text-sm font-semibold flex items-center justify-center transition-colors",
-                                                isSelected ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                                isSelected ? "bg-orange-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent dark:border-gray-700"
                                             )}
                                           >
                                               {day}
@@ -235,24 +235,24 @@ export default function NuovaTransazionePage() {
                                       );
                                   })}
                                </div>
-                               <p className="text-xs text-gray-400 mt-1">Seleziona i giorni (es. Lun-Ven). Se vuoto, usa la data di inizio.</p>
+                               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Seleziona i giorni (es. Lun-Ven). Se vuoto, usa la data di inizio.</p>
                            </div>
                         )}
 
                         <div>
-                             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Fine (Opzionale)</label>
-                             <input type="date" value={dataFine} onChange={(e) => setDataFine(e.target.value)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none", scope === 'P' ? "border-indigo-100 focus:border-indigo-500 text-gray-700" : "border-gray-200 focus:border-blue-500 text-gray-700")} />
+                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Fine (Opzionale)</label>
+                             <input type="date" value={dataFine} onChange={(e) => setDataFine(e.target.value)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100")} />
                         </div>
                         <div>
-                             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Conferma Generazione</label>
+                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Conferma Generazione</label>
                              <div className="flex gap-4">
                                  <label className="flex items-center gap-2 cursor-pointer">
                                      <input type="radio" checked={tipoConferma === 'M'} onChange={() => setTipoConferma('M')} className="w-4 h-4 text-blue-600" />
-                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700" : "text-gray-500")}>Manuale</span>
+                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700 dark:text-gray-100" : "text-gray-500 dark:text-gray-400")}>Manuale</span>
                                  </label>
                                  <label className="flex items-center gap-2 cursor-pointer">
                                      <input type="radio" checked={tipoConferma === 'A'} onChange={() => setTipoConferma('A')} className="w-4 h-4 text-blue-600" />
-                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700" : "text-gray-500")}>Automatica</span>
+                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700 dark:text-gray-100" : "text-gray-500 dark:text-gray-400")}>Automatica</span>
                                  </label>
                              </div>
                         </div>

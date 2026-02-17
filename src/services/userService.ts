@@ -16,6 +16,8 @@ export interface UserSettings {
   del_confirm: boolean;
   show_shared_expenses: boolean; // Not relevant for this web app structure effectively, but kept for compatibility
   show_personal_expenses: boolean; // Not relevant for this web app structure effectively, but kept for compatibility
+  custom_period_active: boolean;
+  custom_period_start_day: number;
 }
 
 export const userService = {
@@ -72,7 +74,7 @@ export const userService = {
 
     const { data, error } = await supabase
       .from('users_group')
-      .select('notifications_enabled, notification_time, dark_mode, del_confirm, show_shared_expenses, show_personal_expenses')
+      .select('notifications_enabled, notification_time, dark_mode, del_confirm, show_shared_expenses, show_personal_expenses, custom_period_active, custom_period_start_day')
       .eq('user_id', user.id)
       .single();
 
@@ -85,7 +87,9 @@ export const userService = {
         dark_mode: false,
         del_confirm: true,
         show_shared_expenses: true,
-        show_personal_expenses: true
+        show_personal_expenses: true,
+        custom_period_active: false,
+        custom_period_start_day: 1
       };
     }
     
@@ -96,7 +100,9 @@ export const userService = {
         show_shared_expenses: data.show_shared_expenses ?? true,
         show_personal_expenses: data.show_personal_expenses ?? true,
         del_confirm: data.del_confirm ?? true,
-        dark_mode: data.dark_mode ?? false
+        dark_mode: data.dark_mode ?? false,
+        custom_period_active: data.custom_period_active ?? false,
+        custom_period_start_day: data.custom_period_start_day ?? 1
     };
   },
 

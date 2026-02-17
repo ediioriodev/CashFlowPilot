@@ -24,6 +24,7 @@ export const viewport: Viewport = {
 };
 
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ScopeProvider } from "@/context/ScopeContext";
 import { Toaster } from "sonner";
 import Header from "@/components/layout/Header";
@@ -35,13 +36,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it">
-      <body className={`${inter.className} antialiased bg-gray-50 text-gray-900`}>
+      <body className={`${inter.className} antialiased bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100`}>
         <AuthProvider>
-          <ScopeProvider>
-            <Header />
-            {children}
-            <Toaster position="top-right" richColors />
-          </ScopeProvider>
+          <ThemeProvider>
+            <ScopeProvider>
+              <Header />
+              {children}
+              <Toaster position="top-right" richColors />
+            </ScopeProvider>
+          </ThemeProvider>
         </AuthProvider>
       </body>
     </html>

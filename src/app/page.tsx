@@ -18,7 +18,8 @@ import {
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { expenseService } from "@/services/expenseService";
-import { getCurrentMonthRange, formatCurrency } from "@/lib/formatUtils";
+import { userService } from "@/services/userService";
+import { getCurrentMonthRange, formatCurrency, getCustomPeriodRange } from "@/lib/formatUtils";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Home() {
@@ -83,7 +84,33 @@ export default function Home() {
     const fetchStats = async () => {
       try {
         setLoading(true);
-        const { start, end } = getCurrentMonthRange();
+
+        // Calculate Range based on user settings
+        const settings = await userService.getSettings();
+        let start, end;
+
+        if (settings.custom_period_active) {
+            const today = new Date();
+            let targetMonth = today.getMonth();
+            let targetYear = today.getFullYear();
+          
+            // If today is past the start day, we are in the period ending NEXT month
+            if (today.getDate() >= settings.custom_period_start_day) {
+                targetMonth++;
+                if (targetMonth > 11) {
+                    targetMonth = 0;
+                    targetYear++;
+                }
+            }
+            const range = getCustomPeriodRange(targetYear, targetMonth, settings.custom_period_start_day, true);
+            start = range.start;
+            end = range.end;
+        } else {
+            const range = getCurrentMonthRange();
+            start = range.start;
+            end = range.end;
+        }
+
         const expenses = await expenseService.getExpenses(start, end, scope);
         const todayStr = new Date().toISOString().split('T')[0];
         
@@ -143,59 +170,59 @@ export default function Home() {
 
   return (
     <ProtectedRoute>
-      <div className={`min-h-screen pb-20 transition-colors duration-500 ${scope === 'P' ? 'bg-gray-50/90' : 'bg-gray-50'}`}>
+      <div className={`min-h-screen pb-20 transition-colors duration-500 ${scope === 'P' ? 'bg-gray-50/90 dark:bg-gray-950/90' : 'bg-gray-50 dark:bg-gray-950'}`}>
         {/* Header removed - using global Header */}
 
         <main className="p-4 max-w-4xl mx-auto space-y-6">
           {/* Welcome Card & Chart */}
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-all duration-300">
-            <h2 className="text-xl font-semibold text-gray-800">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
               Ciao, {firstName || user?.email?.split('@')[0]}
             </h2>
-            <p className="text-gray-500 mt-1">
+            <p className="text-gray-500 dark:text-gray-400 mt-1">
                 Stai visualizzando il portafoglio <span className="font-bold">{scope === 'C' ? (groupName || 'di Gruppo') : (firstName || 'Personale') }</span>.
             </p>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Balance Box */}
-                <div className={`p-6 rounded-xl border flex flex-col justify-between h-full transition-colors duration-300 ${scope === 'C' ? 'bg-blue-50 border-blue-100' : 'bg-indigo-50 border-indigo-100'}`}>
+                <div className={`p-6 rounded-xl border flex flex-col justify-between h-full transition-colors duration-300 ${scope === 'C' ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30' : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30'}`}>
                     
                     {/* Actual Balance */}
                     <div className="flex flex-col items-center justify-center">
-                      <span className={`font-medium mb-1 uppercase tracking-wider text-xs ${scope === 'C' ? 'text-blue-600' : 'text-indigo-600'}`}>Bilancio Attuale</span>
-                      <span className={`text-3xl font-bold ${scope === 'C' ? 'text-blue-800' : 'text-indigo-800'}`}>
+                      <span className={`font-medium mb-1 uppercase tracking-wider text-xs ${scope === 'C' ? 'text-blue-600 dark:text-blue-400' : 'text-indigo-600 dark:text-indigo-400'}`}>Bilancio Attuale</span>
+                      <span className={`text-3xl font-bold ${scope === 'C' ? 'text-blue-800 dark:text-blue-200' : 'text-indigo-800 dark:text-indigo-200'}`}>
                           {loading ? "..." : formatCurrency(saldo)}
                       </span>
                       
                       <div className="w-full grid grid-cols-2 gap-4 text-center mt-2">
                         <div>
-                          <span className="block text-[10px] text-emerald-600 uppercase font-bold tracking-wide">Entrate Reali</span>
-                          <span className="text-emerald-700 font-semibold text-sm">{formatCurrency(stats.actual.entrate)}</span>
+                          <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wide">Entrate Reali</span>
+                          <span className="text-emerald-700 dark:text-emerald-300 font-semibold text-sm">{formatCurrency(stats.actual.entrate)}</span>
                         </div>
                         <div>
-                          <span className="block text-[10px] text-red-500 uppercase font-bold tracking-wide">Uscite Reali</span>
-                          <span className="text-red-700 font-semibold text-sm">{formatCurrency(stats.actual.uscite)}</span>
+                          <span className="block text-[10px] text-red-500 dark:text-red-400 uppercase font-bold tracking-wide">Uscite Reali</span>
+                          <span className="text-red-700 dark:text-red-300 font-semibold text-sm">{formatCurrency(stats.actual.uscite)}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="w-full h-px bg-gray-200/50 my-4"></div>
+                    <div className="w-full h-px bg-gray-200/50 dark:bg-gray-700/50 my-4"></div>
 
                     {/* Forecast Balance */}
                     <div className="flex flex-col items-center justify-center">
-                      <span className="font-medium mb-1 uppercase tracking-wider text-xs text-gray-500">Fine Mese (Previsto)</span>
-                      <span className="text-xl font-bold text-gray-600">
+                      <span className="font-medium mb-1 uppercase tracking-wider text-xs text-gray-500 dark:text-gray-400">Fine Mese (Previsto)</span>
+                      <span className="text-xl font-bold text-gray-600 dark:text-gray-300">
                           {loading ? "..." : formatCurrency(saldoPrevisto)}
                       </span>
                       
                       <div className="w-full grid grid-cols-2 gap-4 text-center mt-2">
                         <div>
-                          <span className="block text-[10px] text-emerald-600/70 uppercase font-bold tracking-wide">Previste</span>
-                          <span className="text-emerald-700/80 font-semibold text-sm">{formatCurrency(stats.forecast.entrate)}</span>
+                          <span className="block text-[10px] text-emerald-600/70 dark:text-emerald-400/70 uppercase font-bold tracking-wide">Previste</span>
+                          <span className="text-emerald-700/80 dark:text-emerald-300/80 font-semibold text-sm">{formatCurrency(stats.forecast.entrate)}</span>
                         </div>
                         <div>
-                          <span className="block text-[10px] text-red-500/70 uppercase font-bold tracking-wide">Previste</span>
-                          <span className="text-red-700/80 font-semibold text-sm">{formatCurrency(stats.forecast.uscite)}</span>
+                          <span className="block text-[10px] text-red-500/70 dark:text-red-400/70 uppercase font-bold tracking-wide">Previste</span>
+                          <span className="text-red-700/80 dark:text-red-300/80 font-semibold text-sm">{formatCurrency(stats.forecast.uscite)}</span>
                         </div>
                       </div>
                     </div>
@@ -203,15 +230,15 @@ export default function Home() {
                 </div>
 
                 {/* Chart Section */}
-                <div className="h-full min-h-[14rem] relative border border-gray-100 rounded-xl p-2 bg-white flex items-center justify-center">
+                <div className="h-full min-h-[14rem] relative border border-gray-100 dark:border-gray-800 rounded-xl p-2 bg-white dark:bg-gray-900 flex items-center justify-center">
                    {loading ? (
                          <div className="animate-pulse flex items-center justify-center h-full w-full">
-                           <div className="rounded-full bg-gray-200 h-32 w-32"></div>
+                           <div className="rounded-full bg-gray-200 dark:bg-gray-800 h-32 w-32"></div>
                          </div>
                     ) : (stats.forecast.entrate === 0 && stats.forecast.uscite === 0) ? (
                         <div className="text-center p-4">
-                          <PieChartIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-                          <p className="text-gray-400 text-sm">Nessuna transazione prevista</p>
+                          <PieChartIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                          <p className="text-gray-400 dark:text-gray-500 text-sm">Nessuna transazione prevista</p>
                         </div>
                     ) : (
                         <ResponsiveContainer width="100%" height="100%">
@@ -248,7 +275,8 @@ export default function Home() {
                                 </Pie>
                                 <Tooltip 
                                   formatter={(value, name) => [formatCurrency(value as number), name]} 
-                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#1f2937', color: '#f3f4f6' }}
+                                  itemStyle={{ color: '#f3f4f6' }}
                                 />
                             </PieChart>
                         </ResponsiveContainer>
@@ -263,12 +291,12 @@ export default function Home() {
               <Link 
                 key={item.name} 
                 href={item.href}
-                className="group flex flex-col items-center justify-center p-6 bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-100 transition-all active:scale-95"
+                className="group flex flex-col items-center justify-center p-6 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md hover:border-indigo-100 dark:hover:border-indigo-900 transition-all active:scale-95"
               >
                 <div className={`p-3 rounded-full mb-3 text-white transition-all duration-300 group-hover:scale-110 ${item.color}`}>
                   <item.icon className="w-6 h-6" />
                 </div>
-                <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">{item.name}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{item.name}</span>
               </Link>
             ))}
           </div>
