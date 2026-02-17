@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "Cash Flow Pilot",
   description: "Gestisci le tue spese in modo semplice",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192x192.png",
+    shortcut: "/icon-192x192.png",
+    apple: "/icon-192x192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -28,6 +33,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ScopeProvider } from "@/context/ScopeContext";
 import { Toaster } from "sonner";
 import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 
 export default function RootLayout({
   children,
@@ -40,8 +46,13 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             <ScopeProvider>
-              <Header />
-              {children}
+              <div className="flex flex-col min-h-screen">
+                <Header />
+                <main className="flex-grow">
+                  {children}
+                </main>
+                <Footer />
+              </div>
               <Toaster position="top-right" richColors />
             </ScopeProvider>
           </ThemeProvider>

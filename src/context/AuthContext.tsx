@@ -48,10 +48,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        await loadSettings(session.user.id);
-      }
+      
+      // Impostiamo loading a false SUBITO dopo aver recuperato la sessione
+      // Non aspettiamo i settings per sbloccare la UI
       setLoading(false);
+      
+      if (session?.user) {
+        // Carica i settings in background senza bloccare il rendering
+        loadSettings(session.user.id).catch(err => console.error("Background settings load failed", err));
+      }
     };
 
     getSession();
@@ -61,12 +66,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        // Anche qui, sblocchiamo subito
+        setLoading(false);
+
         if (session?.user) {
           await loadSettings(session.user.id);
         } else {
           setSettings(null);
         }
-        setLoading(false);
       }
     );
 
