@@ -71,10 +71,11 @@ export const ScopeProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Sync with user settings
   useEffect(() => {
-    if (user) {
+    if (user?.id) {
       refreshScope();
     }
-  }, [user, refreshScope]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, refreshScope]);
 
   return (
     <ScopeContext.Provider value={{ scope, setScope: updateScope, isInitialized, availableScopes, refreshScope }}>

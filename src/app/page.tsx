@@ -23,7 +23,7 @@ import { getCurrentMonthRange, formatCurrency, getCustomPeriodRange } from "@/li
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Home() {
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const { scope } = useScope();
   
   // State for menu
@@ -36,37 +36,6 @@ export default function Home() {
     forecast: { entrate: 0, uscite: 0 } 
   });
   const [loading, setLoading] = useState(true);
-
-  // State for User Name
-  const [firstName, setFirstName] = useState<string>("");
-  const [groupName, setGroupName] = useState<string>("");
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (user?.id) {
-        const { data: userData } = await supabase
-          .from('users_group')
-          .select('*')
-          .eq('user_id', user.id);
-          
-        if (userData && userData.length > 0) {
-          setFirstName(userData[0].first_name);
-
-          if (userData[0].group_id) {
-            const { data: groupData } = await supabase
-              .from('groups_account')
-              .select('*')
-              .eq('id', userData[0].group_id);
-              
-            if (groupData && groupData.length > 0) {
-              setGroupName(groupData[0].group_name);
-            }
-          }
-        }
-      }
-    };
-    fetchUserProfile();
-  }, [user]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -176,12 +145,18 @@ export default function Home() {
         <main className="p-4 max-w-4xl mx-auto space-y-6">
           {/* Welcome Card & Chart */}
           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-800 transition-all duration-300">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-              Ciao, {firstName || user?.email?.split('@')[0]}
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              Ciao, {profile ? (profile.first_name || user?.email?.split('@')[0]) : <div className="h-6 w-32 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>}
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">
-                Stai visualizzando il portafoglio <span className="font-bold">{scope === 'C' ? (groupName || 'di Gruppo') : (firstName || 'Personale') }</span>.
-            </p>
+            <div className="text-gray-500 dark:text-gray-400 mt-1">
+                {profile ? (
+                  <span>
+                    Stai visualizzando il portafoglio <span className="font-bold">{scope === 'C' ? (profile.group_name || 'di Gruppo') : (profile.first_name || 'Personale') }</span>.
+                  </span>
+                ) : (
+                  <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 animate-pulse rounded mt-1"></div>
+                )}
+            </div>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Balance Box */}

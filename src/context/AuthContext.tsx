@@ -1,15 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { UserSettings, userService } from "@/services/userService";
+import { UserSettings, userService, UserProfile } from "@/services/userService";
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   settings: UserSettings | null;
+  profile: UserProfile | null;
   loading: boolean;
   signOut: () => Promise<void>;
   updateSettings: (newSettings: Partial<UserSettings>) => Promise<void>;
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   settings: null,
+  profile: null,
   loading: true,
   signOut: async () => {},
   updateSettings: async () => {},
@@ -30,15 +32,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const lastUserId = useRef<string | null>(null);
 
-  const loadSettings = async (userId: string) => {
+  const loadSettingsAndProfile = async (userId: string) => {
     try {
-      const data = await userService.getSettings();
-      setSettings(data);
+      const [settingsData, profileData] = await Promise.all([
+        userService.getSettings(),
+        userService.getProfile()
+      ]);
+      setSettings(settingsData);
+      setProfile(profileData);
     } catch (error) {
-      console.error("Error loading settings:", error);
+      console.error("Error loading user data:", error);
     }
   };
 
@@ -50,12 +58,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
       
       // Impostiamo loading a false SUBITO dopo aver recuperato la sessione
-      // Non aspettiamo i settings per sbloccare la UI
       setLoading(false);
       
-      if (session?.user) {
+      if (session?.user && session.user.id !== lastUserId.current) {
+        lastUserId.current = session.user.id;
         // Carica i settings in background senza bloccare il rendering
-        loadSettings(session.user.id).catch(err => console.error("Background settings load failed", err));
+        loadSettingsAndProfile(session.user.id).catch(err => console.error("Background data load failed", err));
       }
     };
 
@@ -63,7 +71,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -71,9 +79,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
 
         if (session?.user) {
-          await loadSettings(session.user.id);
+          // Solo se l'utente è cambiato ricarichiamo i settings, o se è un login esplicito
+          if (session.user.id !== lastUserId.current || event === 'SIGNED_IN') {
+             lastUserId.current = session.user.id;
+             await loadSettingsAndProfile(session.user.id);
+          }
         } else {
+          lastUserId.current = null;
           setSettings(null);
+          setProfile(null);
         }
       }
     );
@@ -86,6 +100,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setSettings(null);
+    setProfile(null);
     router.push("/login");
   };
 
@@ -101,18 +116,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error("Failed to update settings:", error);
       // Revert if needed, but for now just reload
-      if (user) loadSettings(user.id);
+      if (user) loadSettingsAndProfile(user.id);
     }
   };
 
   const refreshSettings = async () => {
     if (user) {
-      await loadSettings(user.id);
+      await loadSettingsAndProfile(user.id);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, settings, loading, signOut, updateSettings, refreshSettings }}>
+    <AuthContext.Provider value={{ user, session, settings, profile, loading, signOut, updateSettings, refreshSettings }}>
       {children}
     </AuthContext.Provider>
   );
