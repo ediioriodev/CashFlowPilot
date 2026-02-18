@@ -34,6 +34,7 @@ import { ScopeProvider } from "@/context/ScopeContext";
 import { Toaster } from "sonner";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import DebugLog from "@/components/DebugLog";
 
 export default function RootLayout({
   children,
@@ -52,6 +53,7 @@ export default function RootLayout({
                   {children}
                 </main>
                 <Footer />
+                <DebugLog />
               </div>
               <Toaster position="top-right" richColors />
             </ScopeProvider>

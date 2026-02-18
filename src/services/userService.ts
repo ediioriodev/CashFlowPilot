@@ -80,7 +80,7 @@ export const userService = {
 
     if (error) {
       console.error("Error fetching settings", error);
-      // Return defaults
+      // Return defaults - IMPORTANT: This must match a valid settings object
       return {
         notifications_enabled: true,
         notification_time: '19:30',
@@ -93,14 +93,14 @@ export const userService = {
       };
     }
     
-    // Ensure defaults if null
+    // Ensure defaults if fields are null
     return {
-        ...data,
         notifications_enabled: data.notifications_enabled ?? true,
+        notification_time: data.notification_time ?? '19:30',
+        dark_mode: data.dark_mode ?? false,
+        del_confirm: data.del_confirm ?? true,
         show_shared_expenses: data.show_shared_expenses ?? true,
         show_personal_expenses: data.show_personal_expenses ?? true,
-        del_confirm: data.del_confirm ?? true,
-        dark_mode: data.dark_mode ?? false,
         custom_period_active: data.custom_period_active ?? false,
         custom_period_start_day: data.custom_period_start_day ?? 1
     };

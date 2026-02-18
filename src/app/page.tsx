@@ -54,7 +54,12 @@ export default function Home() {
       try {
         setLoading(true);
 
-        // Calculate Range based on user settings
+        // Se le impostazioni non sono ancora caricate dal context, aspetta. 
+        // Ma per evitare blocchi infiniti, usiamo un default locale se settings è null ma user c'è.
+        // In realtà, possiamo chiamare getSettings() direttamente qui come fallback se il context è lento,
+        // ma è meglio attendere il context se possibile o usare la query diretta.
+        
+        // FIX: Usiamo una chiamata diretta per sicurezza, dato che questo useEffect dipende da scope cambiata
         const settings = await userService.getSettings();
         let start, end;
 
