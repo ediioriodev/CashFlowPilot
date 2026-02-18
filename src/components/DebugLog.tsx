@@ -12,10 +12,33 @@ export default function DebugLog() {
     const originalConsoleWarn = console.warn;
 
     const addLog = (type: string, args: any[]) => {
-      const message = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
-      setLogs(prev => [`[${type}] ${new Date().toISOString().split('T')[1].split('.')[0]}: ${message}`, ...prev].slice(0, 50));
+      // Emergency breaker: If logs exceed 100 in short time, stop logging to prevent browser crash
+      if (logs.length > 100) return;
+      
+      // Don't process empty logs
+      if (args.length === 0) return;
+
+      try {
+        const message = args.map(arg => {
+          try {
+            return typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg);
+          } catch (e) {
+            return '[Circular/Error]';
+          }
+        }).join(' ');
+        
+        // Use setTimeout to avoid state updates during render
+        setTimeout(() => {
+            setLogs(prev => {
+                const newLog = `[${type}] ${new Date().toISOString().split('T')[1].split('.')[0]}: ${message}`;
+                // Avoid duplicates if needed, or just slice
+                return [newLog, ...prev].slice(0, 50);
+            });
+        }, 0);
+      } catch (err) {
+        // Fallback if log processing fails
+        originalConsoleError('DebugLog failed to process log:', err);
+      }
     };
 
     console.log = (...args) => {

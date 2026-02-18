@@ -53,7 +53,7 @@ export default function RootLayout({
                   {children}
                 </main>
                 <Footer />
-                <DebugLog />
+                {(process.env.NODE_ENV === 'development') && <DebugLog />}
               </div>
               <Toaster position="top-right" richColors />
             </ScopeProvider>

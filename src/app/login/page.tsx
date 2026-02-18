@@ -25,8 +25,9 @@ export default function LoginPage() {
         password,
       });
 
-      if (error) throw error;
-
+      if (error) throw error; 
+      
+      router.refresh(); // Ensure strict auth state refresh if needed
       router.push("/");
     } catch (err: any) {
       setError(err.message || "Errore durante il login");

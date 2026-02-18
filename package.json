@@ -1,6 +1,6 @@
 {
   "name": "cash-flow-pilot",
-  "version": "Beta 0.1.4",
+  "version": "Beta 0.1.5",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",

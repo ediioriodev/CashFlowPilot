@@ -69,20 +69,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     getSession();
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
+
+    // Listen for changes on auth state
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Anche qui, sblocchiamo subito
+        // Ensure loading is false
         setLoading(false);
 
         if (session?.user) {
-          // Solo se l'utente è cambiato ricarichiamo i settings, o se è un login esplicito
+          // Prevent redundant profile loads
           if (session.user.id !== lastUserId.current || event === 'SIGNED_IN') {
              lastUserId.current = session.user.id;
-             await loadSettingsAndProfile(session.user.id);
+             // Don't await this to keep UI responsive
+             loadSettingsAndProfile(session.user.id).catch(console.error);
           }
         } else {
           lastUserId.current = null;

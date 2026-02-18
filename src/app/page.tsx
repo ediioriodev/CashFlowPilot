@@ -210,17 +210,20 @@ export default function Home() {
                 </div>
 
                 {/* Chart Section */}
-                <div className="h-full min-h-[14rem] relative border border-gray-100 dark:border-gray-800 rounded-xl p-2 bg-white dark:bg-gray-900 flex items-center justify-center">
+                <div className="h-56 relative border border-gray-100 dark:border-gray-800 rounded-xl p-2 bg-white dark:bg-gray-900 overflow-hidden">
                    {loading ? (
-                         <div className="animate-pulse flex items-center justify-center h-full w-full">
-                           <div className="rounded-full bg-gray-200 dark:bg-gray-800 h-32 w-32"></div>
+                         <div className="flex items-center justify-center h-full w-full">
+                           <div className="rounded-full bg-gray-200 dark:bg-gray-800 h-32 w-32 animate-pulse"></div>
                          </div>
                     ) : (stats.forecast.entrate === 0 && stats.forecast.uscite === 0) ? (
-                        <div className="text-center p-4">
-                          <PieChartIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                          <p className="text-gray-400 dark:text-gray-500 text-sm">Nessuna transazione prevista</p>
+                        <div className="flex items-center justify-center h-full w-full text-center p-4">
+                          <div>
+                            <PieChartIcon className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                            <p className="text-gray-400 dark:text-gray-500 text-sm">Nessuna transazione prevista</p>
+                          </div>
                         </div>
                     ) : (
+                        <div className="w-full h-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 {/* Inner Ring: Actuals */}
@@ -260,6 +263,7 @@ export default function Home() {
                                 />
                             </PieChart>
                         </ResponsiveContainer>
+                        </div>
                     )}
                 </div>
             </div>
