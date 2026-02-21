@@ -1,89 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase, consumeRecoveryPending } from "@/lib/supabaseClient";
+import { useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Loader2, Eye, EyeOff, ShieldCheck, XCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { translateAuthError } from "@/lib/formatUtils";
 
-type PageState = "waiting" | "ready" | "success" | "expired";
-
 export default function ResetPasswordPage() {
-  const [pageState, setPageState] = useState<PageState>("waiting");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const init = async () => {
-      const hash = window.location.hash.substring(1); // strip leading #
-      const hashParams = new URLSearchParams(hash);
-
-      // ── 0. Supabase returned an error in the hash (e.g. otp_expired) ────────
-      if (hashParams.get("error")) {
-        if (!cancelled) setPageState("expired");
-        return;
-      }
-
-      // ── 1. PASSWORD_RECOVERY captured at module level (implicit flow) ────────
-      // Supabase processes the URL hash BEFORE React mounts, so the event fires
-      // before any component listener is registered. consumeRecoveryPending()
-      // reads the flag that was set at module-load time and clears it.
-      if (consumeRecoveryPending()) {
-        if (!cancelled) setPageState("ready");
-        // Clean the hash from the URL so it doesn't interfere on re-renders
-        window.history.replaceState(null, '', window.location.pathname);
-        return;
-      }
-
-      // ── 2. PKCE flow: URL contains ?code=XXXX ──────────────────────────────
-      const code = new URLSearchParams(window.location.search).get("code");
-      if (code) {
-        try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!cancelled) setPageState(error ? "expired" : "ready");
-        } catch {
-          if (!cancelled) setPageState("expired");
-        }
-        return;
-      }
-
-      // ── 3. Implicit flow still in progress: hash not yet consumed ────────────
-      if (hashParams.get("access_token") || hashParams.get("type") === "recovery") {
-        const unsub = supabase.auth.onAuthStateChange((event) => {
-          if (cancelled) return;
-          if (event === "PASSWORD_RECOVERY") {
-            setPageState("ready");
-            window.history.replaceState(null, '', window.location.pathname);
-            unsub.data.subscription.unsubscribe();
-          }
-        });
-        const timeout = setTimeout(() => {
-          if (!cancelled) setPageState("expired");
-          unsub.data.subscription.unsubscribe();
-        }, 8_000);
-        return () => {
-          cancelled = true;
-          clearTimeout(timeout);
-          unsub.data.subscription.unsubscribe();
-        };
-      }
-
-      // ── 4. No token at all ──────────────────────────────────────────────────
-      if (!cancelled) setPageState("expired");
-    };
-
-    init();
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +33,7 @@ export default function ResetPasswordPage() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      setPageState("success");
+      setSuccess(true);
       await supabase.auth.signOut();
       setTimeout(() => router.push("/login"), 3000);
     } catch (err: any) {
@@ -112,43 +43,7 @@ export default function ResetPasswordPage() {
     }
   };
 
-  // ─── Views ────────────────────────────────────────────────────────────────
-
-  if (pageState === "waiting") {
-    return (
-      <Layout>
-        <div className="flex flex-col items-center gap-4 text-center py-4">
-          <Loader2 className="w-10 h-10 text-blue-600 dark:text-blue-400 animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Verifica del link in corso…</p>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (pageState === "expired") {
-    return (
-      <Layout>
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
-            <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-          </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Link non valido o scaduto</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            Il link di recupero è scaduto o è già stato utilizzato.
-            <br />Richiedi un nuovo link dalla pagina di login.
-          </p>
-          <button
-            onClick={() => router.push("/login")}
-            className="mt-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
-          >
-            Torna al login
-          </button>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (pageState === "success") {
+  if (success) {
     return (
       <Layout>
         <div className="flex flex-col items-center gap-3 text-center">
@@ -165,7 +60,6 @@ export default function ResetPasswordPage() {
     );
   }
 
-  // pageState === "ready"
   return (
     <Layout>
       <div className="text-center">
@@ -254,3 +148,4 @@ function Layout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+"
