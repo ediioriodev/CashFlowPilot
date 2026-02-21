@@ -23,6 +23,15 @@ export default function ResetPasswordPage() {
     let cancelled = false;
 
     const init = async () => {
+      const hash = window.location.hash.substring(1); // strip leading #
+      const hashParams = new URLSearchParams(hash);
+
+      // ── 0. Supabase returned an error in the hash (e.g. otp_expired) ────────
+      if (hashParams.get("error")) {
+        if (!cancelled) setPageState("expired");
+        return;
+      }
+
       // ── 1. PASSWORD_RECOVERY captured at module level (implicit flow) ────────
       // Supabase processes the URL hash BEFORE React mounts, so the event fires
       // before any component listener is registered. consumeRecoveryPending()
@@ -44,10 +53,8 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      // ── 3. Implicit flow still in progress: hash not yet consumed ───────────
-      // Rare but possible when the client is slow to initialise.
-      const hash = window.location.hash;
-      if (hash.includes("type=recovery") || hash.includes("access_token")) {
+      // ── 3. Implicit flow still in progress: hash not yet consumed ────────────
+      if (hashParams.get("access_token") || hashParams.get("type") === "recovery") {
         const unsub = supabase.auth.onAuthStateChange((event) => {
           if (cancelled) return;
           if (event === "PASSWORD_RECOVERY") {
