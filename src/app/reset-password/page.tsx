@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase, consumeRecoveryPending } from "@/lib/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Eye, EyeOff, ShieldCheck, XCircle } from "lucide-react";
 import { translateAuthError } from "@/lib/formatUtils";
@@ -23,23 +23,29 @@ export default function ResetPasswordPage() {
     let cancelled = false;
 
     const init = async () => {
-      // ── 1. PKCE flow: URL contains ?code=XXXX ──────────────────────────────
+      // ── 1. PASSWORD_RECOVERY captured at module level (implicit flow) ────────
+      // Supabase processes the URL hash BEFORE React mounts, so the event fires
+      // before any component listener is registered. consumeRecoveryPending()
+      // reads the flag that was set at module-load time and clears it.
+      if (consumeRecoveryPending()) {
+        if (!cancelled) setPageState("ready");
+        return;
+      }
+
+      // ── 2. PKCE flow: URL contains ?code=XXXX ──────────────────────────────
       const code = searchParams.get("code");
       if (code) {
         try {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!cancelled) {
-            setPageState(error ? "expired" : "ready");
-          }
+          if (!cancelled) setPageState(error ? "expired" : "ready");
         } catch {
           if (!cancelled) setPageState("expired");
         }
         return;
       }
 
-      // ── 2. Implicit flow: URL hash contains #access_token=...&type=recovery ─
-      // The Supabase client processes the hash automatically and fires
-      // PASSWORD_RECOVERY via onAuthStateChange. We listen for it with a timeout.
+      // ── 3. Implicit flow still in progress: hash not yet consumed ───────────
+      // Rare but possible when the client is slow to initialise.
       const hash = window.location.hash;
       if (hash.includes("type=recovery") || hash.includes("access_token")) {
         const unsub = supabase.auth.onAuthStateChange((event) => {
@@ -49,12 +55,10 @@ export default function ResetPasswordPage() {
             unsub.data.subscription.unsubscribe();
           }
         });
-
         const timeout = setTimeout(() => {
           if (!cancelled) setPageState("expired");
           unsub.data.subscription.unsubscribe();
         }, 8_000);
-
         return () => {
           cancelled = true;
           clearTimeout(timeout);
@@ -62,7 +66,7 @@ export default function ResetPasswordPage() {
         };
       }
 
-      // ── 3. No token at all ──────────────────────────────────────────────────
+      // ── 4. No token at all ──────────────────────────────────────────────────
       if (!cancelled) setPageState("expired");
     };
 

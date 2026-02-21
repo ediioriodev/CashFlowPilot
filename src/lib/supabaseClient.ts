@@ -13,3 +13,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
   }
 })
+
+// Capture the PASSWORD_RECOVERY event at module level so it is not missed
+// when the Supabase client processes the URL hash before React mounts.
+let _recoveryPending = false;
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') {
+    _recoveryPending = true;
+  }
+});
+
+/** Returns true (and clears the flag) if a PASSWORD_RECOVERY event was captured. */
+export const consumeRecoveryPending = (): boolean => {
+  const val = _recoveryPending;
+  _recoveryPending = false;
+  return val;
+};
