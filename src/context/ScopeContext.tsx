@@ -69,13 +69,15 @@ export const ScopeProvider = ({ children }: { children: React.ReactNode }) => {
       }
   }, [user, updateScope]);
 
-  // Sync with user settings
+  // Sync with user settings — depend only on user?.id, not the refreshScope callback
+  // reference, to avoid duplicate calls when Supabase re-emits onAuthStateChange with
+  // a new User object (same id, different reference) which would recreate the callback.
   useEffect(() => {
     if (user?.id) {
       refreshScope();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, refreshScope]);
+  }, [user?.id]);
 
   return (
     <ScopeContext.Provider value={{ scope, setScope: updateScope, isInitialized, availableScopes, refreshScope }}>

@@ -24,7 +24,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export default function Home() {
   const { user, profile, signOut } = useAuth();
-  const { scope } = useScope();
+  const { scope, isInitialized } = useScope();
   
   // State for menu
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -50,6 +50,11 @@ export default function Home() {
 
   // Fetch stats for the current month
   useEffect(() => {
+    // Don't fetch until scope is definitively loaded from localStorage
+    if (!isInitialized) return;
+
+    let isCurrent = true;
+
     const fetchStats = async () => {
       try {
         setLoading(true);
@@ -106,19 +111,25 @@ export default function Home() {
           .filter(t => t.tipo_transazione === 'spesa')
           .reduce((sum, t) => sum + t.importo, 0);
 
+        // Ignore result if a newer fetch has already started
+        if (!isCurrent) return;
+
         setStats({ 
             actual: { entrate: actualEntrate, uscite: actualUscite },
             forecast: { entrate: forecastEntrate, uscite: forecastUscite }
         });
       } catch (error) {
-        console.error("Error fetching stats:", error);
+        if (isCurrent) console.error("Error fetching stats:", error);
       } finally {
-        setLoading(false);
+        if (isCurrent) setLoading(false);
       }
     };
 
     fetchStats();
-  }, [scope]);
+
+    // Cleanup: mark this run as stale when scope changes or component unmounts
+    return () => { isCurrent = false; };
+  }, [scope, isInitialized]);
 
   const menuItems = [
     { name: "Nuova Transazione", icon: PlusCircle, href: "/spese/nuova", color: scope === 'C' ? "bg-blue-600" : "bg-indigo-600" },
