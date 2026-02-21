@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase, consumeRecoveryPending } from "@/lib/supabaseClient";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff, ShieldCheck, XCircle } from "lucide-react";
 import { translateAuthError } from "@/lib/formatUtils";
 
@@ -17,7 +17,6 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     let cancelled = false;
@@ -38,11 +37,13 @@ export default function ResetPasswordPage() {
       // reads the flag that was set at module-load time and clears it.
       if (consumeRecoveryPending()) {
         if (!cancelled) setPageState("ready");
+        // Clean the hash from the URL so it doesn't interfere on re-renders
+        window.history.replaceState(null, '', window.location.pathname);
         return;
       }
 
       // ── 2. PKCE flow: URL contains ?code=XXXX ──────────────────────────────
-      const code = searchParams.get("code");
+      const code = new URLSearchParams(window.location.search).get("code");
       if (code) {
         try {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -59,6 +60,7 @@ export default function ResetPasswordPage() {
           if (cancelled) return;
           if (event === "PASSWORD_RECOVERY") {
             setPageState("ready");
+            window.history.replaceState(null, '', window.location.pathname);
             unsub.data.subscription.unsubscribe();
           }
         });
