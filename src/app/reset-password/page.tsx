@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Loader2, Eye, EyeOff, ShieldCheck, XCircle } from "lucide-react";
 import { translateAuthError } from "@/lib/formatUtils";
 
 export default function ResetPasswordPage() {
@@ -14,7 +14,26 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    // Controlla se ci sono errori nell'hash dell'URL (es. link scaduto)
+    const hash = window.location.hash.substring(1);
+    const hashParams = new URLSearchParams(hash);
+    const errorDesc = hashParams.get("error_description");
+    const errorCode = hashParams.get("error_code");
+
+    if (errorCode || errorDesc) {
+      setLinkError(
+        translateAuthError(errorDesc || errorCode || "") || 
+        "Il link di recupero non è valido o è scaduto."
+      );
+    }
+  }, []);
+
+  const passwordsMatch = confirmPassword === "" || newPassword === confirmPassword;
+  const confirmTouched = confirmPassword !== "";
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +61,29 @@ export default function ResetPasswordPage() {
       setLoading(false);
     }
   };
+
+  if (linkError) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
+            <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Link non valido o scaduto</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
+            {linkError}
+            <br />Richiedi un nuovo link dalla pagina di login.
+          </p>
+          <button
+            onClick={() => router.push("/login")}
+            className="mt-4 text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
+          >
+            Torna al login
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   if (success) {
     return (
@@ -114,7 +156,13 @@ export default function ResetPasswordPage() {
               minLength={8}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white dark:bg-gray-900 pr-10"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 dark:text-white dark:bg-gray-900 pr-10 ${
+                confirmTouched && !passwordsMatch
+                  ? "border-red-500 focus:ring-red-500"
+                  : confirmTouched && passwordsMatch
+                  ? "border-green-500 focus:ring-green-500"
+                  : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+              }`}
               placeholder="Ripeti la nuova password"
             />
             <button
@@ -125,11 +173,17 @@ export default function ResetPasswordPage() {
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
+          {confirmTouched && !passwordsMatch && (
+            <p className="text-xs text-red-500 mt-1">Le password non coincidono.</p>
+          )}
+          {confirmTouched && passwordsMatch && (
+            <p className="text-xs text-green-500 mt-1">Le password coincidono.</p>
+          )}
         </div>
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (confirmTouched && !passwordsMatch)}
           className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex justify-center items-center gap-2"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salva nuova password"}
@@ -148,3 +202,4 @@ function Layout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
