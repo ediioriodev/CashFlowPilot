@@ -8,7 +8,7 @@ import { userService, UserSettings } from "@/services/userService";
 import { useScope } from "@/context/ScopeContext";
 import { Spesa } from "@/types/expenses";
 import { formatCurrency, formatDate, getCurrentMonthRange, getCustomPeriodRange } from "@/lib/formatUtils";
-import { Clock, Pencil, Trash, Check, AlertCircle, Eye, X, Filter, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Pencil, Trash, Check, AlertCircle, Eye, X, Filter, RotateCcw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import clsx from "clsx";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -72,6 +72,8 @@ export default function SpesePage() {
   const [filterTipo, setFilterTipo] = useState<string[]>([]);
   const [filterNote, setFilterNote] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [isEditingRange, setIsEditingRange] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(true);
   
   useEffect(() => {
     if (isInitialized) {
@@ -209,6 +211,35 @@ export default function SpesePage() {
     return acc + (isEntrata ? Number(curr.importo) : -Number(curr.importo));
   }, 0);
 
+  // Forecast: all expenses passing MultiSelect filters (ignore filterMode)
+  const forecastExpenses = expenses.filter(e => {
+    if (filterNegozio.length > 0 && !filterNegozio.includes(toLabel(e.negozio))) return false;
+    if (filterAmbito.length > 0 && !filterAmbito.includes(toLabel(e.ambito))) return false;
+    if (filterTipo.length > 0 && !filterTipo.includes(e.tipo_transazione)) return false;
+    if (filterNote.length > 0 && !filterNote.includes(toLabel(e.note_spese))) return false;
+    return true;
+  });
+  const forecastTotal = forecastExpenses.reduce((acc, curr) => {
+    const isEntrata = curr.tipo_transazione === 'entrata';
+    return acc + (isEntrata ? Number(curr.importo) : -Number(curr.importo));
+  }, 0);
+
+  const totalLabel =
+    filterMode === 'confirmed_only' ? 'SALDO CONFERMATO' :
+    filterMode === 'confirmed_plus_today' ? 'FINO AD OGGI' :
+    'PREVISIONE TOTALE';
+
+  const rangeLabel = (() => {
+    const s = new Date(range.start + 'T00:00:00');
+    const e = new Date(range.end + 'T00:00:00');
+    const fmtShort = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short' });
+    const fmtFull  = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (s.getFullYear() === e.getFullYear()) {
+      return `${fmtShort.format(s)} — ${fmtFull.format(e)}`;
+    }
+    return `${fmtFull.format(s)} — ${fmtFull.format(e)}`;
+  })();
+
   return (
     <ProtectedRoute>
       <div className={clsx("min-h-screen pb-20 transition-colors duration-300", scope === 'P' ? "bg-gray-50/90 dark:bg-gray-950/90" : "bg-gray-50 dark:bg-gray-950")}>
@@ -216,11 +247,10 @@ export default function SpesePage() {
 
         <main className="p-4 max-w-2xl mx-auto space-y-4">
            {/* Total Card & Filters */}
-           <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 sticky top-20 z-10 flex flex-col gap-3 p-3">
+           <div className={clsx("bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col gap-3 p-3", !isPanelOpen && "sticky top-20 z-10")}>
 
-              {/* Row 1: Period navigation + date range + apply/reset */}
+              {/* Row 1: Period navigation */}
               <div className="flex items-center gap-1.5">
-                {/* Prev / Next arrows */}
                 <button
                   onClick={() => shiftPeriod('prev')}
                   title="Periodo precedente"
@@ -229,22 +259,30 @@ export default function SpesePage() {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
 
-                {/* Date inputs */}
-                <div className="flex items-center gap-1 flex-1 min-w-0">
-                  <input
-                    type="date"
-                    value={pendingRange.start}
-                    onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
-                    className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                  />
-                  <span className="text-gray-400 text-xs shrink-0">—</span>
-                  <input
-                    type="date"
-                    value={pendingRange.end}
-                    onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
-                    className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                  />
-                </div>
+                {isEditingRange ? (
+                  <div className="flex items-center gap-1 flex-1 min-w-0">
+                    <input
+                      type="date"
+                      value={pendingRange.start}
+                      onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
+                      className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                    />
+                    <span className="text-gray-400 text-xs shrink-0">—</span>
+                    <input
+                      type="date"
+                      value={pendingRange.end}
+                      onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
+                      className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingRange(true)}
+                    className="flex-1 text-center text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-2 py-1 transition-colors"
+                  >
+                    {rangeLabel}
+                  </button>
+                )}
 
                 <button
                   onClick={() => shiftPeriod('next')}
@@ -254,7 +292,6 @@ export default function SpesePage() {
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
-                {/* Apply / Reset */}
                 <div className="flex items-center gap-0.5 shrink-0">
                   <button
                     onClick={resetToCurrentPeriod}
@@ -263,27 +300,74 @@ export default function SpesePage() {
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => { if (rangeIsDirty) setRange(pendingRange); }}
-                    title="Applica intervallo personalizzato"
-                    disabled={!rangeIsDirty}
-                    className={clsx(
-                      "p-1.5 rounded-lg transition-colors",
-                      rangeIsDirty
-                        ? "text-white bg-blue-600 hover:bg-blue-700"
-                        : "text-gray-300 dark:text-gray-600 cursor-default"
-                    )}
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
+                  {isEditingRange ? (
+                    <>
+                      <button
+                        onClick={() => { setPendingRange(range); setIsEditingRange(false); }}
+                        title="Annulla"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => { if (rangeIsDirty) { setRange(pendingRange); setIsEditingRange(false); } }}
+                        title="Applica intervallo personalizzato"
+                        disabled={!rangeIsDirty}
+                        className={clsx(
+                          "p-1.5 rounded-lg transition-colors",
+                          rangeIsDirty
+                            ? "text-white bg-blue-600 hover:bg-blue-700"
+                            : "text-gray-300 dark:text-gray-600 cursor-default"
+                        )}
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setIsEditingRange(true)}
+                        title="Modifica intervallo"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setIsPanelOpen(o => !o)}
+                        title={isPanelOpen ? "Comprimi" : "Espandi"}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        {isPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Row 1b: Total */}
-              <div className="flex justify-end">
-                <span className={clsx("font-bold text-xl", totalImporto >= 0 ? "text-green-600" : "text-red-600")}>
-                  {formatCurrency(totalImporto)}
-                </span>
+              {isPanelOpen && (<>
+              {/* Row 1b: Labeled total */}
+              <div className="flex items-center justify-around">
+                <div className="flex flex-col items-center">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-blue-600 dark:text-blue-400 leading-tight">
+                    {totalLabel}
+                  </p>
+                  <p className={clsx("font-bold text-xl leading-tight", totalImporto >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                    {totalImporto > 0 ? '+' : ''}{formatCurrency(totalImporto)}
+                  </p>
+                </div>
+                {filterMode !== 'all' && (
+                  <>
+                    <div className="w-px h-8 bg-gray-200 dark:bg-gray-700" />
+                    <div className="flex flex-col items-center">
+                      <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 leading-tight">
+                        Previsione
+                      </p>
+                      <p className={clsx("font-semibold text-xl leading-tight", forecastTotal >= 0 ? "text-green-600/70 dark:text-green-400/70" : "text-red-600/70 dark:text-red-400/70")}>
+                        {forecastTotal > 0 ? '+' : ''}{formatCurrency(forecastTotal)}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Row 2: Filter toggle + status filter */}
@@ -349,6 +433,7 @@ export default function SpesePage() {
                   </div>
                 </div>
               )}
+              </>)}
            </div>
 
            {/* List */}

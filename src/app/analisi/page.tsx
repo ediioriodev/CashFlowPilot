@@ -8,7 +8,7 @@ import { userService, UserSettings } from "@/services/userService";
 import { Spesa } from "@/types/expenses";
 import { useScope } from "@/context/ScopeContext";
 import { getCurrentMonthRange, formatCurrency, getCustomPeriodRange } from "@/lib/formatUtils";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Info, Receipt, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Info, Pencil, Receipt, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import clsx from "clsx";
@@ -76,6 +76,7 @@ export default function AnalisiPage() {
 
   const [filterType, setFilterType] = useState<'saldo' | 'spesa' | 'entrata'>('saldo');
   const [detailAmbito, setDetailAmbito] = useState<string | null>(null);
+  const [isEditingRange, setIsEditingRange] = useState(false);
 
   // 1. Fetch data
   useEffect(() => {
@@ -217,6 +218,17 @@ export default function AnalisiPage() {
 
   const rangeIsDirty = pendingRange.start !== range.start || pendingRange.end !== range.end;
 
+  const rangeLabel = (() => {
+    const s = new Date(range.start + 'T00:00:00');
+    const e = new Date(range.end + 'T00:00:00');
+    const fmtShort = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short' });
+    const fmtFull  = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+    if (s.getFullYear() === e.getFullYear()) {
+      return `${fmtShort.format(s)} — ${fmtFull.format(e)}`;
+    }
+    return `${fmtFull.format(s)} — ${fmtFull.format(e)}`;
+  })();
+
   const chartColorsInner = filterType === 'saldo' ? SALDO_COLORS : COLORS;
   const chartColorsOuter = filterType === 'saldo' ? SALDO_FORECAST_COLORS : COLORS_FORECAST;
 
@@ -245,21 +257,32 @@ export default function AnalisiPage() {
                  >
                    <ChevronLeft className="w-4 h-4" />
                  </button>
-                 <div className="flex items-center gap-1 flex-1 min-w-0">
-                   <input
-                     type="date"
-                     value={pendingRange.start}
-                     onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
-                     className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                   />
-                   <span className="text-gray-400 text-xs shrink-0">—</span>
-                   <input
-                     type="date"
-                     value={pendingRange.end}
-                     onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
-                     className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                   />
-                 </div>
+
+                 {isEditingRange ? (
+                   <div className="flex items-center gap-1 flex-1 min-w-0">
+                     <input
+                       type="date"
+                       value={pendingRange.start}
+                       onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
+                       className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                     />
+                     <span className="text-gray-400 text-xs shrink-0">—</span>
+                     <input
+                       type="date"
+                       value={pendingRange.end}
+                       onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
+                       className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                     />
+                   </div>
+                 ) : (
+                   <button
+                     onClick={() => setIsEditingRange(true)}
+                     className="flex-1 text-center text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-2 py-1 transition-colors"
+                   >
+                     {rangeLabel}
+                   </button>
+                 )}
+
                  <button
                    onClick={() => shiftPeriod('next')}
                    title="Periodo successivo"
@@ -267,6 +290,7 @@ export default function AnalisiPage() {
                  >
                    <ChevronRight className="w-4 h-4" />
                  </button>
+
                  <div className="flex items-center gap-0.5 shrink-0">
                    <button
                      onClick={resetToCurrentPeriod}
@@ -275,19 +299,38 @@ export default function AnalisiPage() {
                    >
                      <RotateCcw className="w-3.5 h-3.5" />
                    </button>
-                   <button
-                     onClick={() => { if (rangeIsDirty) setRange(pendingRange); }}
-                     title="Applica intervallo personalizzato"
-                     disabled={!rangeIsDirty}
-                     className={clsx(
-                       "p-1.5 rounded-lg transition-colors",
-                       rangeIsDirty
-                         ? "text-white bg-blue-600 hover:bg-blue-700"
-                         : "text-gray-300 dark:text-gray-600 cursor-default"
-                     )}
-                   >
-                     <Check className="w-3.5 h-3.5" />
-                   </button>
+                   {isEditingRange ? (
+                     <>
+                       <button
+                         onClick={() => { setPendingRange(range); setIsEditingRange(false); }}
+                         title="Annulla"
+                         className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                       >
+                         <X className="w-3.5 h-3.5" />
+                       </button>
+                       <button
+                         onClick={() => { if (rangeIsDirty) { setRange(pendingRange); setIsEditingRange(false); } }}
+                         title="Applica intervallo personalizzato"
+                         disabled={!rangeIsDirty}
+                         className={clsx(
+                           "p-1.5 rounded-lg transition-colors",
+                           rangeIsDirty
+                             ? "text-white bg-blue-600 hover:bg-blue-700"
+                             : "text-gray-300 dark:text-gray-600 cursor-default"
+                         )}
+                       >
+                         <Check className="w-3.5 h-3.5" />
+                       </button>
+                     </>
+                   ) : (
+                     <button
+                       onClick={() => setIsEditingRange(true)}
+                       title="Modifica intervallo"
+                       className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                     >
+                       <Pencil className="w-3.5 h-3.5" />
+                     </button>
+                   )}
                  </div>
                </div>
                {/* Saldo/Entrate/Uscite toggle */}
