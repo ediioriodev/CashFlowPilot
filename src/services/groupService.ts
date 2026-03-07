@@ -45,5 +45,23 @@ export const groupService = {
     } catch (error: any) {
       return { success: false, error: error.message };
     }
+  },
+
+  async getGroupMembers(groupId: number): Promise<{ userId: string; firstName: string; lastName: string }[]> {
+    const { data, error } = await supabase
+      .from('users_group')
+      .select('user_id, first_name, last_name')
+      .eq('group_id', groupId);
+
+    if (error) {
+      console.error('Error fetching group members:', error);
+      return [];
+    }
+
+    return data.map((member: any) => ({
+      userId: member.user_id,
+      firstName: member.first_name,
+      lastName: member.last_name,
+    }));
   }
 };

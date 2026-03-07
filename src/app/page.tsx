@@ -14,6 +14,7 @@ import {
   Wallet,
   User,
   UserPlus,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -51,7 +52,7 @@ export default function Home() {
   // Fetch stats for the current month
   useEffect(() => {
     // Don't fetch until scope is definitively loaded from localStorage
-    if (!isInitialized) return;
+    if (!isInitialized || !user) return;
 
     let isCurrent = true;
 
@@ -129,12 +130,13 @@ export default function Home() {
 
     // Cleanup: mark this run as stale when scope changes or component unmounts
     return () => { isCurrent = false; };
-  }, [scope, isInitialized]);
+  }, [scope, isInitialized, user]);
 
   const menuItems = [
     { name: "Nuova Transazione", icon: PlusCircle, href: "/spese/nuova", color: scope === 'C' ? "bg-blue-600" : "bg-indigo-600" },
     { name: "Storico", icon: List, href: "/spese", color: "bg-emerald-600" },
     { name: "Analisi", icon: PieChartIcon, href: "/analisi", color: "bg-purple-600" },
+    { name: "Report", icon: BarChart3, href: "/report", color: "bg-orange-500" },
   ];
 
   const chartDataActual = [
