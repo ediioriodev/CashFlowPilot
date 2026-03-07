@@ -72,7 +72,9 @@ export default function EditExpenseModal({ isOpen, onClose, onSuccess, expense, 
             note_spese: note,
             data_spesa: dataSpesa,
             tipo_transazione: tipoTransazione,
-            confermata: expense.confermata // Preserve confirmation status unless logic says otherwise
+            confermata: expense.confermata,
+            recurring_parent_id: expense.recurring_parent_id,
+            is_recurring_parent: expense.is_recurring_parent,
           },
           scope,
           updateFuture

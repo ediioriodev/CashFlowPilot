@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft, LogOut, Settings, User as UserIcon, Wallet, UserPlus, Home } from "lucide-react";
 import ScopeToggle from "../ui/ScopeToggle";
+import packageInfo from "../../../package.json";
 import { useAuth } from "@/context/AuthContext";
 import { useScope } from "@/context/ScopeContext";
 import { useState, useRef, useEffect } from "react";
@@ -116,6 +117,10 @@ export default function Header() {
               Invita Membri
             </Link>
             
+            <div className="px-4 py-2 text-xs text-gray-400 dark:text-gray-600">
+              Cash Flow Pilot v{packageInfo.version}
+            </div>
+
             <div className="border-t border-gray-100 dark:border-gray-800 my-1"></div>
 
             <button

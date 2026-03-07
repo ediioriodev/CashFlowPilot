@@ -421,15 +421,28 @@ export const expenseService = {
     if (error) throw error;
 
     // 2. Handle future occurrences if requested
-    if (updateFutureOccurrences && expense.recurring_parent_id && expense.data_spesa) {
-        const { error: batchError } = await supabase
-            .from(tableName)
-            .update(updatePayload)
-            .eq('recurring_parent_id', expense.recurring_parent_id)
-            .gte('data_spesa', expense.data_spesa) 
-            .neq('id', id);
+    // parentId: for a child use its recurring_parent_id; for the parent record use its own id
+    const parentId = expense.recurring_parent_id ?? (expense.is_recurring_parent ? id : undefined);
 
-        if (batchError) throw batchError;
+    if (updateFutureOccurrences && parentId && expense.data_spesa) {
+        // Only propagate non-date fields: each future occurrence keeps its own date
+        const batchUpdatePayload: Record<string, unknown> = {};
+        if (expense.importo !== undefined)         batchUpdatePayload.importo = expense.importo;
+        if (expense.ambito !== undefined)          batchUpdatePayload.ambito = expense.ambito;
+        if (expense.negozio !== undefined)         batchUpdatePayload.negozio = expense.negozio;
+        if (expense.note_spese !== undefined)      batchUpdatePayload.note_spese = expense.note_spese;
+        if (expense.tipo_transazione !== undefined) batchUpdatePayload.tipo_transazione = expense.tipo_transazione;
+
+        if (Object.keys(batchUpdatePayload).length > 0) {
+            const { error: batchError } = await supabase
+                .from(tableName)
+                .update(batchUpdatePayload)
+                .eq('recurring_parent_id', parentId)
+                .gte('data_spesa', expense.data_spesa)
+                .neq('id', id);
+
+            if (batchError) throw batchError;
+        }
     }
   },
 

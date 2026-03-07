@@ -33,7 +33,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ScopeProvider } from "@/context/ScopeContext";
 import { Toaster } from "sonner";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
+import BottomNav from "@/components/layout/BottomNav";
 import DebugLog from "@/components/DebugLog";
 
 export default function RootLayout({
@@ -49,10 +49,10 @@ export default function RootLayout({
             <ScopeProvider>
               <div className="flex flex-col min-h-screen">
                 <Header />
-                <main className="flex-grow">
+                <main className="flex-grow pb-20">
                   {children}
                 </main>
-                <Footer />
+                <BottomNav />
                 {(process.env.NODE_ENV === 'development') && <DebugLog />}
               </div>
               <Toaster position="top-right" richColors />

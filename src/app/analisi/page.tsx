@@ -7,8 +7,8 @@ import { expenseService } from "@/services/expenseService";
 import { userService, UserSettings } from "@/services/userService";
 import { Spesa } from "@/types/expenses";
 import { useScope } from "@/context/ScopeContext";
-import { getCurrentMonthRange, formatCurrency, formatDateForAPI, getCustomPeriodRange } from "@/lib/formatUtils";
-import { ArrowLeft, Info, Receipt, X } from "lucide-react";
+import { getCurrentMonthRange, formatCurrency, getCustomPeriodRange } from "@/lib/formatUtils";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Info, Receipt, RotateCcw, X } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import clsx from "clsx";
@@ -47,31 +47,19 @@ export default function AnalisiPage() {
   const [centerValues, setCenterValues] = useState({ actual: 0, forecast: 0 });
 
   const [range, setRange] = useState(getCurrentMonthRange());
+  const [pendingRange, setPendingRange] = useState(getCurrentMonthRange());
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   useEffect(() => {
     userService.getSettings().then((s) => {
       setUserSettings(s);
-      // If custom period is active, update the range based on current month 'end' date logic
       if (s.custom_period_active) {
-          const currentEnd = new Date(); // Today
-          // We want the period that *contains* today.
-          // If today is Feb 17 and start is 20: Period is Jan 20 - Feb 19. End Month is Feb.
-          // getCustomPeriodRange(2026, 1, 20) -> Jan 20 - Feb 19.
-          
-          // But wait, getCustomPeriodRange takes (Year, Month, StartDay).
-          // Month is 0-based index of the 'target' month (where period ends).
-          // If today is Feb 17, and Start is 20.
-          // We are in 'Jan 20 - Feb 19'. The target month is FEB (index 1).
-          // If today is Feb 21. We are in 'Feb 20 - Mar 19'. Target month is MAR (index 2).
-          
           const today = new Date();
           let targetMonth = today.getMonth();
           let targetYear = today.getFullYear();
           
           if (today.getDate() >= s.custom_period_start_day) {
-             // We are in the period starting in this month, ending next month.
-             // Target month is Next Month.
              targetMonth++;
              if (targetMonth > 11) {
                 targetMonth = 0;
@@ -80,7 +68,9 @@ export default function AnalisiPage() {
           }
           
           setRange(getCustomPeriodRange(targetYear, targetMonth, s.custom_period_start_day, true));
+          setPendingRange(getCustomPeriodRange(targetYear, targetMonth, s.custom_period_start_day, true));
       }
+      setSettingsLoaded(true);
     });
   }, []);
 
@@ -89,7 +79,7 @@ export default function AnalisiPage() {
 
   // 1. Fetch data
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || !settingsLoaded) return;
 
     const fetchData = async () => {
         setLoading(true);
@@ -103,7 +93,7 @@ export default function AnalisiPage() {
         }
     };
     fetchData();
-  }, [range, scope, isInitialized]);
+  }, [range, scope, isInitialized, settingsLoaded]);
 
   // 2. Compute stats
   useEffect(() => {
@@ -152,7 +142,7 @@ export default function AnalisiPage() {
       };
 
       // 1. Filter Transactions
-      const actualTxs = transactions.filter(e => e.confermata && e.data_spesa <= today);
+      const actualTxs = transactions.filter(e => e.confermata && e.data_spesa.split('T')[0] <= today);
       const forecastTxs = transactions; // All are part of forecast
 
       // 2. Process Both
@@ -183,25 +173,49 @@ export default function AnalisiPage() {
       setListData(mergedList);
   };
 
-  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value; 
-    if (!val) return;
-    const [yearStr, monthStr] = val.split('-');
-    const year = parseInt(yearStr);
-    const month = parseInt(monthStr) - 1; // 0-based
-
-    if (userSettings?.custom_period_active) {
-        setRange(getCustomPeriodRange(year, month, userSettings.custom_period_start_day, true));
+  const shiftPeriod = (direction: 'prev' | 'next') => {
+    if (userSettings?.custom_period_active && userSettings.custom_period_start_day > 1) {
+      const startDate = new Date(range.start + 'T00:00:00');
+      let targetYear = startDate.getFullYear();
+      let targetMonth = startDate.getMonth() + 1 + (direction === 'next' ? 1 : -1);
+      if (targetMonth > 11) { targetMonth -= 12; targetYear++; }
+      if (targetMonth < 0)  { targetMonth += 12; targetYear--; }
+      setRange(getCustomPeriodRange(targetYear, targetMonth, userSettings.custom_period_start_day, true));
+      setPendingRange(getCustomPeriodRange(targetYear, targetMonth, userSettings.custom_period_start_day, true));
     } else {
-        const start = new Date(year, month, 1);
-        const end = new Date(year, month + 1, 0);
-        
-        setRange({
-            start: formatDateForAPI(start),
-            end: formatDateForAPI(end)
-        });
+      const startDate = new Date(range.start + 'T00:00:00');
+      let y = startDate.getFullYear();
+      let m = startDate.getMonth() + (direction === 'next' ? 1 : -1);
+      if (m > 11) { m = 0; y++; }
+      if (m < 0)  { m = 11; y--; }
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const mm = String(m + 1).padStart(2, '0');
+      const r = { start: `${y}-${mm}-01`, end: `${y}-${mm}-${String(lastDay).padStart(2, '0')}` };
+      setRange(r);
+      setPendingRange(r);
     }
   };
+
+  const resetToCurrentPeriod = () => {
+    if (userSettings?.custom_period_active) {
+      const today = new Date();
+      let targetMonth = today.getMonth();
+      let targetYear = today.getFullYear();
+      if (today.getDate() >= userSettings.custom_period_start_day) {
+        targetMonth++;
+        if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+      }
+      const r = getCustomPeriodRange(targetYear, targetMonth, userSettings.custom_period_start_day, true);
+      setRange(r);
+      setPendingRange(r);
+    } else {
+      const r = getCurrentMonthRange();
+      setRange(r);
+      setPendingRange(r);
+    }
+  };
+
+  const rangeIsDirty = pendingRange.start !== range.start || pendingRange.end !== range.end;
 
   const chartColorsInner = filterType === 'saldo' ? SALDO_COLORS : COLORS;
   const chartColorsOuter = filterType === 'saldo' ? SALDO_FORECAST_COLORS : COLORS_FORECAST;
@@ -222,33 +236,80 @@ export default function AnalisiPage() {
             
             {/* Filter Controls */}
             <div className="flex flex-col gap-3 bg-white dark:bg-gray-900 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-               <div className="flex flex-col sm:flex-row gap-3 justify-between items-center">
-                 <input 
-                    type="month" 
-                    value={range.start.substring(0, 7)}
-                    onChange={handleMonthChange}
-                    className="font-bold text-gray-800 dark:text-gray-100 bg-transparent border-none p-0 focus:ring-0 cursor-pointer"
-                 />
-                 <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-full sm:w-auto">
-                    <button 
-                        onClick={() => setFilterType('saldo')} 
-                        className={clsx("flex-1 sm:flex-none px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'saldo' ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
-                    >
-                        Saldo
-                    </button>
-                    <button 
-                        onClick={() => setFilterType('entrata')} 
-                        className={clsx("flex-1 sm:flex-none px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'entrata' ? "bg-white dark:bg-gray-700 shadow text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
-                    >
-                        Entrate
-                    </button>
-                    <button 
-                        onClick={() => setFilterType('spesa')} 
-                        className={clsx("flex-1 sm:flex-none px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'spesa' ? "bg-white dark:bg-gray-700 shadow text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
-                    >
-                        Uscite
-                    </button>
+               {/* Date navigation */}
+               <div className="flex items-center gap-1.5">
+                 <button
+                   onClick={() => shiftPeriod('prev')}
+                   title="Periodo precedente"
+                   className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100 transition-colors shrink-0"
+                 >
+                   <ChevronLeft className="w-4 h-4" />
+                 </button>
+                 <div className="flex items-center gap-1 flex-1 min-w-0">
+                   <input
+                     type="date"
+                     value={pendingRange.start}
+                     onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
+                     className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                   />
+                   <span className="text-gray-400 text-xs shrink-0">—</span>
+                   <input
+                     type="date"
+                     value={pendingRange.end}
+                     onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
+                     className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
+                   />
                  </div>
+                 <button
+                   onClick={() => shiftPeriod('next')}
+                   title="Periodo successivo"
+                   className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100 transition-colors shrink-0"
+                 >
+                   <ChevronRight className="w-4 h-4" />
+                 </button>
+                 <div className="flex items-center gap-0.5 shrink-0">
+                   <button
+                     onClick={resetToCurrentPeriod}
+                     title="Ripristina periodo corrente"
+                     className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                   >
+                     <RotateCcw className="w-3.5 h-3.5" />
+                   </button>
+                   <button
+                     onClick={() => { if (rangeIsDirty) setRange(pendingRange); }}
+                     title="Applica intervallo personalizzato"
+                     disabled={!rangeIsDirty}
+                     className={clsx(
+                       "p-1.5 rounded-lg transition-colors",
+                       rangeIsDirty
+                         ? "text-white bg-blue-600 hover:bg-blue-700"
+                         : "text-gray-300 dark:text-gray-600 cursor-default"
+                     )}
+                   >
+                     <Check className="w-3.5 h-3.5" />
+                   </button>
+                 </div>
+               </div>
+               {/* Saldo/Entrate/Uscite toggle */}
+               <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                  <button 
+                      onClick={() => setFilterType('saldo')} 
+                      className={clsx("flex-1 px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'saldo' ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
+                  >
+                      Saldo
+                  </button>
+                  <button 
+                      onClick={() => setFilterType('entrata')} 
+                      className={clsx("flex-1 px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'entrata' ? "bg-white dark:bg-gray-700 shadow text-green-600 dark:text-green-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
+                  >
+                      Entrate
+                  </button>
+                  <button 
+                      onClick={() => setFilterType('spesa')} 
+                      className={clsx("flex-1 px-3 py-1 text-xs font-semibold rounded-md transition-all", filterType === 'spesa' ? "bg-white dark:bg-gray-700 shadow text-red-600 dark:text-red-400" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200")}
+                  >
+                      Uscite
+                  </button>
                </div>
             </div>
 
