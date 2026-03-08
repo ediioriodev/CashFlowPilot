@@ -29,21 +29,35 @@ export const notificationService = {
     return await Notification.requestPermission();
   },
 
-  async subscribeToPush(): Promise<PushSubscription | null> {
-    if (!this.isSupported()) return null;
+  async subscribeToPush(): Promise<{ subscription: PushSubscription | null; error?: string }> {
+    if (!this.isSupported()) return { subscription: null, error: 'Push non supportato su questo browser.' };
     if (!VAPID_PUBLIC_KEY) {
       console.error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set');
-      return null;
+      return { subscription: null, error: 'Configurazione VAPID mancante.' };
     }
 
     const registration = await navigator.serviceWorker.ready;
-    const existing = await registration.pushManager.getSubscription();
-    if (existing) return existing;
 
-    return await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
-    });
+    // Clear any stale existing subscription before subscribing fresh
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      try {
+        await existing.unsubscribe();
+      } catch {
+        // Ignore unsubscribe errors — proceed with fresh subscribe anyway
+      }
+    }
+
+    try {
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+      });
+      return { subscription };
+    } catch (err: any) {
+      console.error('pushManager.subscribe() failed:', err?.message ?? err);
+      return { subscription: null, error: err?.message ?? 'Errore durante la registrazione push.' };
+    }
   },
 
   async saveSubscription(subscription: PushSubscription): Promise<void> {
@@ -90,9 +104,9 @@ export const notificationService = {
       };
     }
 
-    const subscription = await this.subscribeToPush();
+    const { subscription, error: subError } = await this.subscribeToPush();
     if (!subscription) {
-      return { success: false, error: 'Impossibile registrare le notifiche push.' };
+      return { success: false, error: subError ?? 'Impossibile registrare le notifiche push.' };
     }
 
     await this.saveSubscription(subscription);
