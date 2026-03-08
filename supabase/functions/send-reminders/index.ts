@@ -18,6 +18,39 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Window ±7 minutes around current time
 const WINDOW_MINUTES = 7;
 
+// ---------------------------------------------------------------------------
+// Timezone helper — converts a UTC Date to a "fake UTC" Date whose
+// UTC components (.getUTCHours(), .getUTCFullYear(), …) reflect the
+// wall-clock time in the given IANA timezone (e.g. "Europe/Rome").
+// This lets us compare user-entered local times against `now` correctly.
+// ---------------------------------------------------------------------------
+const ITALY_TZ = "Europe/Rome";
+
+function toLocalDate(utcDate: Date, timeZone: string): Date {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(utcDate);
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)!.value);
+  return new Date(
+    Date.UTC(
+      get("year"),
+      get("month") - 1,
+      get("day"),
+      get("hour"),
+      get("minute"),
+      get("second"),
+    ),
+  );
+}
+
 Deno.serve(async (req: Request) => {
   // Security: only allow requests with correct Bearer secret
   const authHeader = req.headers.get("Authorization");
@@ -34,8 +67,12 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   const now = new Date();
-  const windowStart = new Date(now.getTime() - WINDOW_MINUTES * 60 * 1000);
-  const windowEnd = new Date(now.getTime() + WINDOW_MINUTES * 60 * 1000);
+  // Convert UTC `now` to Italian local time for all comparisons.
+  // Users enter times in Italian time (CET/CEST); the cron fires at the
+  // Italian hour in UTC, so without this the ±7-min window never matches.
+  const localNow = toLocalDate(now, ITALY_TZ);
+  const windowStart = new Date(localNow.getTime() - WINDOW_MINUTES * 60 * 1000);
+  const windowEnd = new Date(localNow.getTime() + WINDOW_MINUTES * 60 * 1000);
 
   // Fetch all active reminders — we'll compute trigger times in JS
   // (Supabase free tier doesn't support pg_cron / complex generated column expressions)
@@ -148,8 +185,8 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Block 2: Recurring expense confirmation notifications ────────────────────
-  // Today's date string in UTC (YYYY-MM-DD)
-  const todayStr = now.toISOString().split("T")[0];
+  // Today's date string in Italian local time (YYYY-MM-DD)
+  const todayStr = localNow.toISOString().split("T")[0];
   const todayStartUtc = `${todayStr}T00:00:00.000Z`;
 
   // Fetch all users that have recurring notifications enabled
@@ -169,11 +206,12 @@ Deno.serve(async (req: Request) => {
     const notifHour = timeParts[0];
     const notifMinute = timeParts[1];
 
-    // Build notification timestamp for today (UTC)
+    // Build notification timestamp for today in "fake UTC" space
+    // (same space as localNow, so the ±7-min window comparison is correct)
     const notifTs = new Date(Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
+      localNow.getUTCFullYear(),
+      localNow.getUTCMonth(),
+      localNow.getUTCDate(),
       notifHour,
       notifMinute,
       0,
