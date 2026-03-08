@@ -6,10 +6,10 @@ import { notificationService } from "@/services/notificationService";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useScope } from "@/context/ScopeContext";
-import { Shield, Moon, Wallet, Receipt, Bell, BellOff, Clock } from "lucide-react";
+import { Moon, Wallet, Receipt, Bell, BellOff, Clock } from "lucide-react";
 import clsx from "clsx";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export default function ImpostazioniPage() {
   const { settings, updateSettings, loading } = useAuth();
@@ -17,7 +17,6 @@ export default function ImpostazioniPage() {
   const { refreshScope } = useScope();
 
   const [notifPermission, setNotifPermission] = useState<string>('default');
-  const [notifLoading, setNotifLoading] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isIOSInstalled, setIsIOSInstalled] = useState(false);
 
@@ -26,36 +25,23 @@ export default function ImpostazioniPage() {
     if (typeof window !== 'undefined') {
       const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
       setIsIOS(ios);
-      // PWA installed check: standalone mode
       setIsIOSInstalled((window.navigator as any).standalone === true);
     }
   }, []);
 
-  const handleNotificationToggle = async (enable: boolean) => {
-    setNotifLoading(true);
-    try {
-      if (enable) {
-        const result = await notificationService.enableNotifications();
-        if (result.success) {
-          toast.success('Notifiche push attivate!');
-          setNotifPermission('granted');
-          await updateSettings({ notifications_enabled: true });
-        } else {
-          toast.error(result.error || 'Errore attivazione notifiche');
-        }
-      } else {
-        await notificationService.unsubscribe();
-        await updateSettings({ notifications_enabled: false });
-        setNotifPermission(notificationService.getPermissionState());
-        toast.success('Notifiche disattivate');
-      }
-    } catch (e) {
-      console.error(e);
-      toast.error('Errore durante la gestione delle notifiche');
-    } finally {
-      setNotifLoading(false);
+  // Silently ensure push subscription is registered if OS permission is already granted
+  const autoSubscribe = useCallback(async () => {
+    if (notifPermission !== 'granted' || !settings) return;
+    if (settings.notifications_enabled) return;
+    const result = await notificationService.enableNotifications();
+    if (result.success) {
+      await updateSettings({ notifications_enabled: true });
     }
-  };
+  }, [notifPermission, settings, updateSettings]);
+
+  useEffect(() => {
+    autoSubscribe();
+  }, [autoSubscribe]);
 
   // Handle other settings updates normally
   const handleUpdate = async (key: keyof UserSettings, value: any) => {
@@ -181,7 +167,7 @@ export default function ImpostazioniPage() {
                   {notifPermission === 'denied' && (
                     <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
                       <BellOff className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>Il permesso è stato negato. Abilitalo nelle impostazioni del browser / sistema.</span>
+                      <span>Il permesso notifiche è negato. Abilitalo nelle impostazioni del dispositivo.</span>
                     </div>
                   )}
 
@@ -192,26 +178,11 @@ export default function ImpostazioniPage() {
                     </div>
                   )}
 
-                  {notifPermission !== 'unsupported' && (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="block text-gray-700 dark:text-gray-300">Attiva Notifiche Push</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi avvisi per i promemoria anche a schermo spento.</span>
-                      </div>
-                      <Toggle
-                        checked={!!(settings?.notifications_enabled && notifPermission === 'granted')}
-                        onChange={handleNotificationToggle}
-                        disabled={notifLoading || notifPermission === 'denied'}
-                      />
-                    </div>
-                  )}
-
-                  {/* Recurring expense notifications sub-section */}
-                  {settings?.notifications_enabled && notifPermission === 'granted' && (
-                    <div className="mt-2 space-y-3 pl-2 border-l-2 border-orange-100 dark:border-orange-900">
+                  {notifPermission === 'granted' && (
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="block text-sm text-gray-700 dark:text-gray-300">Spese Ricorrenti da Confermare</span>
+                          <span className="block text-gray-700 dark:text-gray-300">Spese Ricorrenti da Confermare</span>
                           <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi una notifica se hai spese ricorrenti in sospeso.</span>
                         </div>
                         <Toggle
