@@ -123,23 +123,7 @@ export default function ImpostazioniPage() {
                 </div>
             </div>
 
-            {/* General Settings */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Generali</h2>
-                </div>
-                
-                <div className="p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-700 dark:text-gray-300">Conferma Eliminazione</span>
-                        <Toggle 
-                            checked={settings.del_confirm} 
-                            onChange={(v) => handleUpdate('del_confirm', v)} 
-                        />
-                    </div>
-                </div>
-            </div>
+          
 
             {/* Periodo Fiscale */}
             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
