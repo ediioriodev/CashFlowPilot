@@ -15,6 +15,7 @@ import {
   User,
   UserPlus,
   BarChart3,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -137,6 +138,7 @@ export default function Home() {
     { name: "Storico", icon: List, href: "/spese", color: "bg-emerald-600" },
     { name: "Analisi", icon: PieChartIcon, href: "/analisi", color: "bg-purple-600" },
     { name: "Report", icon: BarChart3, href: "/report", color: "bg-orange-500" },
+    { name: "Promemoria", icon: Bell, href: "/promemoria", color: "bg-yellow-500" },
   ];
 
   const chartDataActual = [

@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, PlusCircle, List, PieChart, BarChart3 } from "lucide-react";
+import { PlusCircle, List, PieChart, BarChart3, Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useScope } from "@/context/ScopeContext";
 
 const navItems = [
-  { href: "/", icon: Home, label: "Home", exact: true },
   { href: "/spese/nuova", icon: PlusCircle, label: "Nuova" },
   { href: "/spese", icon: List, label: "Storico" },
   { href: "/analisi", icon: PieChart, label: "Analisi" },
   { href: "/report", icon: BarChart3, label: "Report" },
+  { href: "/promemoria", icon: Bell, label: "Promemoria" },
 ];
 
 export default function BottomNav() {
@@ -33,7 +33,6 @@ export default function BottomNav() {
   const inactiveColor = "text-gray-400 dark:text-gray-500";
 
   function isActive(item: (typeof navItems)[number]) {
-    if (item.exact) return pathname === item.href;
     if (item.href === "/spese")
       return pathname.startsWith("/spese") && !pathname.startsWith("/spese/nuova");
     return pathname.startsWith(item.href);

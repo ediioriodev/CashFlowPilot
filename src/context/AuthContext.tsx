@@ -115,8 +115,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await userService.updateSettings(newSettings);
       // We could reload here to be sure, but optimistic is fine usually
-    } catch (error) {
-      console.error("Failed to update settings:", error);
+    } catch (error: any) {
+      console.error("Failed to update settings:", error?.message ?? error?.code ?? error);
       // Revert if needed, but for now just reload
       if (user) loadSettingsAndProfile(user.id);
     }

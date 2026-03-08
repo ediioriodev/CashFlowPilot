@@ -120,6 +120,7 @@ CREATE TABLE public.users_group (
   notification_time time with time zone,
   push_token text,
   notifications_enabled boolean DEFAULT true,
+  recurring_notifications_enabled boolean DEFAULT false,
   dark_mode boolean DEFAULT false,
   del_confirm boolean DEFAULT true,
   show_shared_expenses boolean DEFAULT true,
