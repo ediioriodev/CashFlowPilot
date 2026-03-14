@@ -9,6 +9,31 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
+// navigator.serviceWorker.ready waits for the SW to control the page and can
+// hang indefinitely on some mobile OSes (MagicOS, MIUI, ColorOS, etc.).
+// Strategy:
+//  1. Fast path: getRegistration() resolves immediately with the existing
+//     registration even if the SW isn't yet controlling the page. For
+//     PushManager the SW only needs to be active, not controlling.
+//  2. Slow fallback: .ready with a generous timeout, in case the fast path
+//     returns a registration without an active worker (e.g. first install).
+async function getSwRegistration(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    // No registration at all (e.g. SW disabled in development) — return immediately.
+    if (reg === undefined) return null;
+    if (reg?.active) return reg; // Fast path: active SW already present
+  } catch {
+    // ignore — fall through to .ready
+  }
+  // Slow path: wait for the SW to become active, but don't block forever
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+}
+
 export const notificationService = {
   isSupported(): boolean {
     return (
@@ -36,7 +61,16 @@ export const notificationService = {
       return { subscription: null, error: 'Configurazione VAPID mancante.' };
     }
 
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await getSwRegistration();
+    if (!registration) {
+      const isDev = process.env.NODE_ENV === 'development';
+      return {
+        subscription: null,
+        error: isDev
+          ? 'Service worker disabilitato in sviluppo. Usa una build di produzione per testare le notifiche push.'
+          : 'Service worker non disponibile. Ricarica la pagina e riprova.',
+      };
+    }
 
     // Clear any stale existing subscription before subscribing fresh
     const existing = await registration.pushManager.getSubscription();
@@ -78,9 +112,18 @@ export const notificationService = {
   async unsubscribe(): Promise<void> {
     if (!this.isSupported()) return;
 
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.getSubscription();
-    if (subscription) await subscription.unsubscribe();
+    // Best-effort: remove the browser-side PushSubscription.
+    // If the SW is unavailable (e.g. MagicOS killed it), skip and still
+    // clear the DB — the important part is invalidating the stored token.
+    try {
+      const registration = await getSwRegistration(4000);
+      if (registration) {
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription) await subscription.unsubscribe();
+      }
+    } catch {
+      // SW unavailable — proceed to clear DB anyway
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;

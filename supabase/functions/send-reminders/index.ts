@@ -100,7 +100,11 @@ Deno.serve(async (req: Request) => {
       // Compute when this alert should fire
       const [year, month, day] = reminder.reminder_date.split("-").map(Number);
       const [hour, minute] = reminder.reminder_time.split(":").map(Number);
-      const reminderTs = new Date(year, month - 1, day, hour, minute, 0);
+      // Use Date.UTC so the timestamp is constructed in the same "fake UTC" space
+      // as localNow/windowStart/windowEnd, which were built via toLocalDate().
+      // Using `new Date(year, month-1, ...)` would use the Deno runtime's local
+      // timezone and produce a wrong offset against the ±7-min window.
+      const reminderTs = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
       const triggerTs = new Date(reminderTs.getTime() - offsetMinutes * 60 * 1000);
 
       // Check if triggerTs is within our window

@@ -19,6 +19,7 @@ export default function ImpostazioniPage() {
   const [notifPermission, setNotifPermission] = useState<string>('default');
   const [isIOS, setIsIOS] = useState(false);
   const [isIOSInstalled, setIsIOSInstalled] = useState(false);
+  const [isSubscribing, setIsSubscribing] = useState(false);
 
   useEffect(() => {
     setNotifPermission(notificationService.getPermissionState());
@@ -29,15 +30,56 @@ export default function ImpostazioniPage() {
     }
   }, []);
 
-  // Silently ensure push subscription is registered if OS permission is already granted
+  // Silently refresh push subscription if the browser lost it
+  // (e.g. after a PWA reinstall or browser update), but ONLY when the user
+  // has explicitly enabled notifications. Never re-enable if they turned it off.
   const autoSubscribe = useCallback(async () => {
     if (notifPermission !== 'granted' || !settings) return;
-    if (settings.notifications_enabled) return;
+    // Respect the user's explicit choice — don't re-enable if disabled.
+    if (!settings.notifications_enabled) return;
+    // Verify the browser still has a live PushSubscription.
+    // If not, the stored push_token is stale — resubscribe silently.
+    try {
+      if (!('serviceWorker' in navigator)) return;
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) return; // Live subscription present — nothing to do.
+    } catch {
+      return;
+    }
+    // Token was lost — silently resubscribe.
     const result = await notificationService.enableNotifications();
     if (result.success) {
       await updateSettings({ notifications_enabled: true });
     }
   }, [notifPermission, settings, updateSettings]);
+
+  const handleNotificationsToggle = async (enabled: boolean) => {
+    if (isSubscribing) return;
+    setIsSubscribing(true);
+    try {
+      if (enabled) {
+        const result = await notificationService.enableNotifications();
+        if (result.success) {
+          await updateSettings({ notifications_enabled: true });
+          setNotifPermission('granted');
+          toast.success('Notifiche push attivate');
+        } else {
+          toast.error(result.error ?? 'Errore durante la registrazione push');
+          setNotifPermission(notificationService.getPermissionState());
+        }
+      } else {
+        await notificationService.unsubscribe();
+        await updateSettings({ notifications_enabled: false });
+        toast.success('Notifiche push disattivate');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Errore durante la gestione delle notifiche');
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
 
   useEffect(() => {
     autoSubscribe();
@@ -178,32 +220,68 @@ export default function ImpostazioniPage() {
                     </div>
                   )}
 
+                  {/* Default: permesso non ancora richiesto */}
+                  {notifPermission === 'default' && !(isIOS && !isIOSInstalled) && (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="block text-gray-700 dark:text-gray-300">Notifiche Push</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">Abilita per ricevere promemoria e avvisi.</span>
+                      </div>
+                      <button
+                        onClick={() => handleNotificationsToggle(true)}
+                        disabled={isSubscribing}
+                        className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {isSubscribing ? 'Attivazione...' : 'Abilita'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Granted: mostra controlli */}
                   {notifPermission === 'granted' && (
                     <div className="space-y-3">
+                      {/* Toggle principale notifiche push */}
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="block text-gray-700 dark:text-gray-300">Spese Ricorrenti da Confermare</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi una notifica se hai spese ricorrenti in sospeso.</span>
+                          <span className="block text-gray-700 dark:text-gray-300">Notifiche Push</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi promemoria e avvisi sull&apos;app.</span>
                         </div>
                         <Toggle
-                          checked={!!settings.recurring_notifications_enabled}
-                          onChange={(v) => handleUpdate('recurring_notifications_enabled', v)}
+                          checked={!!settings.notifications_enabled}
+                          onChange={handleNotificationsToggle}
+                          disabled={isSubscribing}
                         />
                       </div>
 
-                      {settings.recurring_notifications_enabled && (
-                        <div className="flex items-center justify-between pl-2 border-l-2 border-orange-100 dark:border-orange-900">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-orange-500 dark:text-orange-400" />
-                            <span className="text-sm text-gray-600 dark:text-gray-400">Orario notifica</span>
+                      {/* Sezione spese ricorrenti — visibile solo se push attivo */}
+                      {settings.notifications_enabled && (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="block text-gray-700 dark:text-gray-300">Spese Ricorrenti da Confermare</span>
+                              <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi una notifica se hai spese ricorrenti in sospeso.</span>
+                            </div>
+                            <Toggle
+                              checked={!!settings.recurring_notifications_enabled}
+                              onChange={(v) => handleUpdate('recurring_notifications_enabled', v)}
+                            />
                           </div>
-                          <input
-                            type="time"
-                            value={(settings.notification_time ?? '19:30').substring(0, 5)}
-                            onChange={(e) => handleUpdate('notification_time', e.target.value)}
-                            className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400 text-gray-900 dark:text-gray-100"
-                          />
-                        </div>
+
+                          {settings.recurring_notifications_enabled && (
+                            <div className="flex items-center justify-between pl-2 border-l-2 border-orange-100 dark:border-orange-900">
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-orange-500 dark:text-orange-400" />
+                                <span className="text-sm text-gray-600 dark:text-gray-400">Orario notifica</span>
+                              </div>
+                              <input
+                                type="time"
+                                value={(settings.notification_time ?? '19:30').substring(0, 5)}
+                                onChange={(e) => handleUpdate('notification_time', e.target.value)}
+                                className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400 text-gray-900 dark:text-gray-100"
+                              />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
