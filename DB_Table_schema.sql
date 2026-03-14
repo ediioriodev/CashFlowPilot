@@ -53,9 +53,32 @@ CREATE TABLE public.notification_logs (
   error_message text,
   sent_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
+  reminder_id bigint,
+  alert_offset integer,
   CONSTRAINT notification_logs_pkey PRIMARY KEY (id),
   CONSTRAINT notification_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT notification_logs_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.groups_account(id)
+  CONSTRAINT notification_logs_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.groups_account(id),
+  CONSTRAINT notification_logs_reminder_id_fkey FOREIGN KEY (reminder_id) REFERENCES public.reminders(id)
+);
+CREATE TABLE public.reminders (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  group_id bigint,
+  is_personal boolean NOT NULL DEFAULT true,
+  title text NOT NULL,
+  note text,
+  amount numeric,
+  reminder_date date NOT NULL,
+  reminder_time time without time zone NOT NULL,
+  alerts jsonb NOT NULL DEFAULT '[0]'::jsonb,
+  completed boolean NOT NULL DEFAULT false,
+  completed_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT reminders_pkey PRIMARY KEY (id),
+  CONSTRAINT reminders_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT reminders_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.groups_account(id)
 );
 CREATE TABLE public.spese (
   id bigint NOT NULL DEFAULT nextval('spese_id_seq'::regclass),
@@ -120,13 +143,13 @@ CREATE TABLE public.users_group (
   notification_time time with time zone,
   push_token text,
   notifications_enabled boolean DEFAULT true,
-  recurring_notifications_enabled boolean DEFAULT false,
   dark_mode boolean DEFAULT false,
   del_confirm boolean DEFAULT true,
   show_shared_expenses boolean DEFAULT true,
   show_personal_expenses boolean DEFAULT true,
   custom_period_active boolean DEFAULT false,
   custom_period_start_day integer DEFAULT 1,
+  recurring_notifications_enabled boolean DEFAULT false,
   CONSTRAINT users_group_pkey PRIMARY KEY (id),
   CONSTRAINT users_group_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT users_group_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.groups_account(id)

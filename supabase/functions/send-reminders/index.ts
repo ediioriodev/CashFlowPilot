@@ -97,54 +97,32 @@ Deno.serve(async (req: Request) => {
     const alerts: number[] = Array.isArray(reminder.alerts) ? reminder.alerts : [0];
 
     for (const offsetMinutes of alerts) {
-      // Compute when this alert should fire
+      // Compute when this alert should fire (in "fake UTC" space matching localNow)
       const [year, month, day] = reminder.reminder_date.split("-").map(Number);
       const [hour, minute] = reminder.reminder_time.split(":").map(Number);
       // Use Date.UTC so the timestamp is constructed in the same "fake UTC" space
       // as localNow/windowStart/windowEnd, which were built via toLocalDate().
-      // Using `new Date(year, month-1, ...)` would use the Deno runtime's local
-      // timezone and produce a wrong offset against the ±7-min window.
       const reminderTs = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
       const triggerTs = new Date(reminderTs.getTime() - offsetMinutes * 60 * 1000);
+      // scheduled_for is the exact trigger timestamp used as dedup key:
+      // — same cron window doubled: identical scheduledFor → dedup blocks
+      // — reminder edited to new time: new triggerTs → new scheduledFor → re-send allowed
+      const scheduledFor = triggerTs.toISOString();
 
       // Check if triggerTs is within our window
-      if (triggerTs < windowStart || triggerTs > windowEnd) continue;
-
-      // Check for deduplication: already sent this (reminder_id, alert_offset)?
-      const { data: existing } = await supabase
-        .from("notification_logs")
-        .select("id")
-        .eq("reminder_id", reminder.id)
-        .eq("alert_offset", offsetMinutes)
-        .eq("status", "sent")
-        .maybeSingle();
-
-      if (existing) continue; // Already sent, skip
-
-      // Fetch the push_token for this user
-      const { data: userRow } = await supabase
-        .from("users_group")
-        .select("push_token, notifications_enabled")
-        .eq("user_id", reminder.user_id)
-        .maybeSingle();
-
-      if (!userRow?.push_token || !userRow.notifications_enabled) continue;
-
-      let subscription: PushSubscription;
-      try {
-        subscription = JSON.parse(userRow.push_token);
-      } catch {
-        continue; // Malformed token
+      if (triggerTs < windowStart || triggerTs > windowEnd) {
+        console.log(`reminder ${reminder.id} offset ${offsetMinutes}: outside window (trigger=${scheduledFor})`);
+        continue;
       }
 
-      // Build notification payload
+      // Build notification payload (shared across all recipients for this reminder)
       const offsetLabel = offsetMinutes === 0
         ? "Ora"
         : offsetMinutes < 60
-          ? `${offsetMinutes} min fa`
+          ? `${offsetMinutes} min prima`
           : offsetMinutes === 60
-            ? "1 ora fa"
-            : "1 giorno fa";
+            ? "1 ora prima"
+            : "1 giorno prima";
 
       const bodyParts = [];
       if (reminder.amount != null) {
@@ -159,32 +137,93 @@ Deno.serve(async (req: Request) => {
         url: "/promemoria",
       });
 
-      // Send push
-      let status = "sent";
-      let errorMessage: string | null = null;
+      // Determine recipients:
+      //  • personal reminder  → only the owner
+      //  • group reminder     → all group members with notifications enabled
+      let recipients: Array<{ user_id: string; push_token: string }> = [];
 
-      try {
-        await webpush.sendNotification(subscription as any, pushPayload);
-        sent++;
-      } catch (err: any) {
-        status = "error";
-        errorMessage = err?.message ?? "Unknown error";
-        errors++;
-        console.error(`Push error for reminder ${reminder.id} offset ${offsetMinutes}:`, err);
+      if (reminder.is_personal) {
+        const { data: rows } = await supabase
+          .from("users_group")
+          .select("user_id, push_token")
+          .eq("user_id", reminder.user_id)
+          .eq("notifications_enabled", true)
+          .not("push_token", "is", null)
+          .limit(1);
+        const row = rows?.[0];
+        if (!row?.push_token) {
+          console.log(`reminder ${reminder.id}: no push token for user ${reminder.user_id}, skipping`);
+          continue;
+        }
+        recipients = [{ user_id: row.user_id, push_token: row.push_token }];
+      } else {
+        const { data: rows } = await supabase
+          .from("users_group")
+          .select("user_id, push_token")
+          .eq("group_id", reminder.group_id)
+          .eq("notifications_enabled", true)
+          .not("push_token", "is", null);
+        if (!rows || rows.length === 0) {
+          console.log(`reminder ${reminder.id}: no recipients for group ${reminder.group_id}, skipping`);
+          continue;
+        }
+        recipients = rows.map((r: any) => ({ user_id: r.user_id, push_token: r.push_token }));
       }
 
-      // Log the attempt
-      await supabase.from("notification_logs").insert({
-        user_id: reminder.user_id,
-        notification_type: "reminder",
-        group_id: reminder.group_id ?? null,
-        reminder_id: reminder.id,
-        alert_offset: offsetMinutes,
-        push_token: userRow.push_token,
-        status,
-        error_message: errorMessage,
-        sent_at: new Date().toISOString(),
-      });
+      // Send to each recipient individually
+      for (const recipient of recipients) {
+        // Dedup: (reminder_id, alert_offset, scheduled_for, user_id)
+        // This allows re-sending if the reminder was edited to a new time (new scheduled_for),
+        // but blocks double-send when the cron fires twice within the same window.
+        const { data: existing } = await supabase
+          .from("notification_logs")
+          .select("id")
+          .eq("reminder_id", reminder.id)
+          .eq("alert_offset", offsetMinutes)
+          .eq("scheduled_for", scheduledFor)
+          .eq("user_id", recipient.user_id)
+          .eq("status", "sent")
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`reminder ${reminder.id} offset ${offsetMinutes} user ${recipient.user_id}: already sent (dedup), skipping`);
+          continue;
+        }
+
+        let subscription: PushSubscription;
+        try {
+          subscription = JSON.parse(recipient.push_token);
+        } catch {
+          console.log(`reminder ${reminder.id} user ${recipient.user_id}: malformed push token, skipping`);
+          continue;
+        }
+
+        let status = "sent";
+        let errorMessage: string | null = null;
+
+        try {
+          await webpush.sendNotification(subscription as any, pushPayload);
+          sent++;
+        } catch (err: any) {
+          status = "error";
+          errorMessage = err?.message ?? "Unknown error";
+          errors++;
+          console.error(`Push error for reminder ${reminder.id} offset ${offsetMinutes} user ${recipient.user_id}:`, err);
+        }
+
+        await supabase.from("notification_logs").insert({
+          user_id: recipient.user_id,
+          notification_type: "reminder",
+          group_id: reminder.group_id ?? null,
+          reminder_id: reminder.id,
+          alert_offset: offsetMinutes,
+          scheduled_for: scheduledFor,
+          push_token: recipient.push_token,
+          status,
+          error_message: errorMessage,
+          sent_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
