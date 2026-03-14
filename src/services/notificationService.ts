@@ -9,29 +9,40 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
-// navigator.serviceWorker.ready waits for the SW to control the page and can
-// hang indefinitely on some mobile OSes (MagicOS, MIUI, ColorOS, etc.).
-// Strategy:
-//  1. Fast path: getRegistration() resolves immediately with the existing
-//     registration even if the SW isn't yet controlling the page. For
-//     PushManager the SW only needs to be active, not controlling.
-//  2. Slow fallback: .ready with a generous timeout, in case the fast path
-//     returns a registration without an active worker (e.g. first install).
+// navigator.serviceWorker.ready waits until the SW *controls* the page, which
+// can hang forever on MagicOS/MIUI/ColorOS (the OS kills the SW before claim()).
+// PushManager only requires the SW to be *active* (not controlling), so we use
+// a more targeted approach:
+//  1. getRegistration() (no arg = current page URL) — resolves immediately.
+//  2. If already active → return right away.
+//  3. If installing/waiting → watch statechange directly until activated or timeout.
 async function getSwRegistration(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return null;
+  let reg: ServiceWorkerRegistration | undefined;
   try {
-    const reg = await navigator.serviceWorker.getRegistration('/');
-    // No registration at all (e.g. SW disabled in development) — return immediately.
-    if (reg === undefined) return null;
-    if (reg?.active) return reg; // Fast path: active SW already present
+    reg = await navigator.serviceWorker.getRegistration();
   } catch {
-    // ignore — fall through to .ready
+    return null;
   }
-  // Slow path: wait for the SW to become active, but don't block forever
-  return Promise.race([
-    navigator.serviceWorker.ready,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-  ]);
+  // No SW registered at all (e.g. SW disabled in dev mode).
+  if (reg === undefined) return null;
+  // Fast path: SW already active.
+  if (reg.active) return reg;
+  // SW is still installing or waiting to activate.
+  // Watch its statechange event directly — avoids depending on .ready which
+  // requires the SW to control the page (never happens on some mobile OSes).
+  const worker = reg.installing ?? reg.waiting;
+  if (!worker) return null;
+  return new Promise<ServiceWorkerRegistration | null>((resolve) => {
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    worker.addEventListener('statechange', function onStateChange() {
+      if (reg!.active) {
+        clearTimeout(timer);
+        worker.removeEventListener('statechange', onStateChange);
+        resolve(reg!);
+      }
+    });
+  });
 }
 
 export const notificationService = {
