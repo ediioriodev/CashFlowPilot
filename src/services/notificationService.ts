@@ -9,54 +9,81 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
-// navigator.serviceWorker.ready waits until the SW *controls* the page, which
-// can hang forever on MagicOS/MIUI/ColorOS (the OS kills the SW before claim()).
-// PushManager only requires the SW to be *active* (not controlling), so we use
-// a more targeted approach:
-//  1. Fast path: getRegistration() resolves immediately. If active → done.
-//  2. If no registration → dev mode (SW disabled). Return null immediately.
-//  3. If registration exists but all worker states are null → OS killed the SW
-//     process. Re-register /sw.js to wake it up (idempotent call).
-//  4. If installing/waiting → watch statechange until activated or timeout.
-async function getSwRegistration(timeoutMs = 8000): Promise<ServiceWorkerRegistration | null> {
-  if (!('serviceWorker' in navigator)) return null;
-
-  // Step 1 & 2: fast path
-  let reg: ServiceWorkerRegistration | undefined;
-  try {
-    reg = await navigator.serviceWorker.getRegistration();
-  } catch {
-    return null;
-  }
-  if (reg === undefined) return null; // dev mode — SW not registered
-  if (reg.active) return reg;         // already running
-
-  // Step 3: all worker states are null — OS killed the SW process.
-  // Re-registering is idempotent and triggers a new install/activate cycle.
-  if (!reg.installing && !reg.waiting) {
-    try {
-      reg = await navigator.serviceWorker.register('/sw.js');
-    } catch {
-      return null;
-    }
-    if (reg.active) return reg; // activated instantly (cached)
-  }
-
-  // Step 4: SW is installing or waiting — watch statechange directly instead
-  // of .ready which requires controlling the page (never on some mobile OSes).
-  const worker = reg.installing ?? reg.waiting;
-  if (!worker) return null;
-
-  return new Promise<ServiceWorkerRegistration | null>((resolve) => {
+// Helper: wait for a ServiceWorker in installing/waiting state to become active.
+function waitForActive(
+  reg: ServiceWorkerRegistration,
+  worker: ServiceWorker,
+  timeoutMs: number,
+): Promise<ServiceWorkerRegistration | null> {
+  return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), timeoutMs);
     worker.addEventListener('statechange', function onStateChange() {
-      if (reg!.active) {
+      if (worker.state === 'activated' || reg.active) {
         clearTimeout(timer);
         worker.removeEventListener('statechange', onStateChange);
-        resolve(reg!);
+        resolve(reg);
       }
     });
   });
+}
+
+// Obtains an active ServiceWorkerRegistration without relying on
+// navigator.serviceWorker.ready, which can hang indefinitely on mobile OSes
+// that aggressively kill background processes (MagicOS, MIUI, ColorOS …).
+//
+// Strategy:
+//  1. getRegistrations() (handles any scope mismatch; returns all for origin).
+//  2. Registration with active SW → return immediately (fast path).
+//  3. Registration with installing/waiting SW → watch statechange.
+//  4. Zombie registration (all workers null, OS killed process) →
+//     unregister() + fresh register('/sw.js') → guarantees a new installing
+//     worker → watch statechange. (idempotent re-register won't trigger this
+//     in Chrome because the script bytes haven't changed, hence we must
+//     fully unregister first to force a new install cycle.)
+//  5. No registration at all (dev mode or first visit) → register('/sw.js').
+async function getSwRegistration(timeoutMs = 10000): Promise<ServiceWorkerRegistration | null> {
+  if (!('serviceWorker' in navigator)) return null;
+
+  let regs: ReadonlyArray<ServiceWorkerRegistration> = [];
+  try {
+    regs = await navigator.serviceWorker.getRegistrations();
+  } catch {
+    return null;
+  }
+
+  // Step 2: fast path — find a registration with an already-active worker
+  const activeReg = regs.find((r) => r.active);
+  if (activeReg) return activeReg;
+
+  // Step 3: find a registration where the SW is mid-install or waiting
+  const pendingReg = regs.find((r) => r.installing ?? r.waiting);
+  if (pendingReg) {
+    const worker = pendingReg.installing ?? pendingReg.waiting!;
+    return waitForActive(pendingReg, worker, timeoutMs);
+  }
+
+  // Step 4 & 5: either a zombie registration or no registration at all.
+  // Unregister any zombies first so register() always starts a fresh install.
+  try {
+    await Promise.all(regs.map((r) => r.unregister()));
+  } catch {
+    // Best-effort; proceed anyway.
+  }
+
+  let freshReg: ServiceWorkerRegistration;
+  try {
+    freshReg = await navigator.serviceWorker.register('/sw.js');
+  } catch {
+    // SW disabled (dev mode) or script inaccessible.
+    return null;
+  }
+
+  if (freshReg.active) return freshReg; // activated from cache instantly
+
+  const freshWorker = freshReg.installing ?? freshReg.waiting;
+  if (!freshWorker) return null; // browser refused to install
+
+  return waitForActive(freshReg, freshWorker, timeoutMs);
 }
 
 export const notificationService = {
@@ -88,12 +115,11 @@ export const notificationService = {
 
     const registration = await getSwRegistration();
     if (!registration) {
-      const isDev = process.env.NODE_ENV === 'development';
       return {
         subscription: null,
-        error: isDev
+        error: process.env.NODE_ENV === 'development'
           ? 'Service worker disabilitato in sviluppo. Usa una build di produzione per testare le notifiche push.'
-          : 'Service worker non disponibile. Ricarica la pagina e riprova.',
+          : 'Impossibile avviare il service worker. Chiudi l\'app completamente, riaprila e riprova.',
       };
     }
 
