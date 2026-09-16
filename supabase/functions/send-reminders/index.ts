@@ -282,7 +282,8 @@ Deno.serve(async (req: Request) => {
 
     const alreadySentTypes = new Set((sentToday ?? []).map((r: any) => r.notification_type));
 
-    // Fetch pending unconfirmed recurring expenses for today in parallel
+    // Fetch pending unconfirmed recurring expenses up to and including today
+    // (lte instead of eq so that past unconfirmed expenses are also counted)
     const [personalResult, sharedResult] = await Promise.all([
       supabase
         .from("spese_personali")
@@ -290,7 +291,7 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", u.user_id)
         .eq("ricorrente", true)
         .eq("confermata", false)
-        .eq("data_spesa", todayStr)
+        .lte("data_spesa", todayStr)
         .is("deleted_at", null),
       u.group_id
         ? supabase
@@ -299,7 +300,7 @@ Deno.serve(async (req: Request) => {
             .eq("group_id", u.group_id)
             .eq("ricorrente", true)
             .eq("confermata", false)
-            .eq("data_spesa", todayStr)
+            .lte("data_spesa", todayStr)
             .is("deleted_at", null)
         : Promise.resolve({ count: 0, error: null }),
     ]);
@@ -312,7 +313,7 @@ Deno.serve(async (req: Request) => {
       const noun = personalCount === 1 ? "spesa personale" : "spese personali";
       const payload = JSON.stringify({
         title: "💳 Spese personali da confermare",
-        body: `Hai ${personalCount} ${noun} da confermare oggi`,
+        body: `Hai ${personalCount} ${noun} in sospeso da confermare`,
         tag: `recurring-personal-${u.user_id}-${todayStr}`,
         url: "/spese",
       });
@@ -344,7 +345,7 @@ Deno.serve(async (req: Request) => {
       const noun = sharedCount === 1 ? "spesa condivisa" : "spese condivise";
       const payload = JSON.stringify({
         title: "💳 Spese condivise da confermare",
-        body: `Hai ${sharedCount} ${noun} da confermare oggi`,
+        body: `Hai ${sharedCount} ${noun} in sospeso da confermare`,
         tag: `recurring-shared-${u.user_id}-${todayStr}`,
         url: "/spese",
       });
