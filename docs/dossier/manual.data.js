@@ -23,7 +23,7 @@ window.dossierDocs.manual = {
     revisione: "r3",
     pubblico: "Chi usa l'app in famiglia",
     aggiornatoIl: "2026-09-26",
-    fonte: "Interfaccia Beta 0.4.0 — secondo giro di revisione (design/REVISIONE.md §6) e installazione in app",
+    fonte: "Interfaccia Beta 0.4.0 — secondo giro di revisione (design/REVISIONE.md §6), installazione in app e riservatezza tra gruppi",
     riservato: false,
   },
 
@@ -237,6 +237,8 @@ window.dossierDocs.manual = {
           ["«Il permesso è stato negato»", "Le notifiche sono state rifiutate al browser", "Si riattiva dalle impostazioni del dispositivo, poi si torna nella pagina Impostazioni"],
           ["«Apri nel browser»", "Stai usando il browser interno di un'altra app (WhatsApp, Instagram…), che non sa installare", "Dal menu di quell'app scegli «Apri nel browser», oppure tocca «Copia link» e incollalo in Chrome o Safari"],
           ["«Questo browser non supporta le notifiche push»", "Il browser in uso non ha la funzione", "Si può usare l'app lo stesso: mancano solo gli avvisi"],
+          ["«Questo account fa già parte di un gruppo»", "Durante la registrazione: l'account esiste già e appartiene a una famiglia. Ogni account può stare in un solo gruppo", "Accedi con quell'account invece di registrarti di nuovo; per entrare in un'altra famiglia serve un account diverso"],
+          ["«Registrazione non valida o scaduta»", "La registrazione non è stata completata entro un giorno, oppure i dati non corrispondono a un account appena creato", "Riprova la registrazione dall'inizio; se l'email risulta già usata, accedi e scrivi a chi amministra l'app"],
           ["«Non fai parte di nessun gruppo»", "L'account non è collegato a un gruppo familiare", "Da «Vai agli inviti» si crea un invito, oppure si accetta quello ricevuto"],
         ]},
         { tipo: "elenco", titolo: "Limiti da conoscere", voci: [
@@ -247,6 +249,7 @@ window.dossierDocs.manual = {
           "Il filtro «Chi ha pagato» del Report conta solo le spese anticipate da quella persona: quelle del fondo comune sono escluse",
           "L'accantonamento automatico sugli obiettivi si può impostare ma non è ancora in funzione: i versamenti si fanno a mano",
           "Il collegamento per aprire uno scontrino vale pochi minuti: se lo inoltri, chi lo riceve più tardi non lo apre più",
+          "Ogni account appartiene a una sola famiglia, e di un'altra famiglia non si vede niente: né le spese né i nomi degli iscritti",
           "Il tema scuro e la modalità Semplice / Avanzata sono salvati sul profilo e ti seguono su ogni dispositivo. Chi si iscrive ora parte in Semplice",
         ]},
         { tipo: "nota", tono: "ok", titolo: "Una cancellazione si può annullare",
@@ -301,6 +304,7 @@ window.dossierDocs.manual = {
   ],
 
   changelog: [
+    { data: "2026-09-26", fonte: "Riservatezza tra famiglie e verifica a schermo degli inviti", modifiche: "Due messaggi nuovi della registrazione («Questo account fa già parte di un gruppo», «Registrazione non valida o scaduta»), limite «un account, una famiglia» e riservatezza dei nomi fra famiglie. Procedura degli inviti allineata all'interfaccia: il pulsante è «Crea l'invito» nel riquadro «Nuovo invito», email facoltativa, validità sette giorni." },
     { data: "2026-09-26", fonte: "Riallineamento allo stato reale dell'app (design/REVISIONE.md §6, src/app)", modifiche: "Versione Beta 0.4.0. Allineato al secondo giro di revisione: «Altri dettagli» nel modulo di spesa in Semplice, «Sei oltre il disponibile» in Oggi, riepilogo di Movimenti e «Chi ha anticipato» solo in Avanzata, «deve ricevere» in Famiglia, confronto con i periodi prima in Analisi, filtro «Chi ha pagato» nel Report, inviti con «Nuovo invito» / «Copia il codice» e annullamento confermato. L'accantonamento automatico sugli obiettivi è dichiarato non ancora in funzione (prima era descritto come attivo). Tolto il messaggio «non ancora attivi», che con l'archivio aggiornato non compare più. Modalità di partenza Semplice per i nuovi iscritti." },
     { data: "2026-09-26", fonte: "docs/installazione-app.md + src/components/install", modifiche: "Installazione in app: nuova procedura con il pulsante «Installa l'app» (dialogo diretto su Android, guida su iPhone), nota di verifica, caso «Apri nel browser» per i browser interni ad altre app, tre FAQ nuove e FAQ sulle notifiche iPhone allineata al link «Guarda come installarla»." },
     { data: "2026-09-26", fonte: "Interfaccia Beta 0.3.1 (src/app, src/components) + design/DIREZIONE-A.md", modifiche: "Prima stesura. Sezioni ricavate dalle pagine dell'app: navigazione, portafoglio, periodo e modalità Semplice/Avanzata; le otto pagine principali e le quattro di servizio; procedure per ricorrenti, conferme, buste, obiettivi, divisione e conguaglio, scontrini, inviti, notifiche e periodo personalizzato. Etichette copiate dall'interfaccia e messaggi d'errore presi dai testi reali; niente che non sia verificabile nel codice." },

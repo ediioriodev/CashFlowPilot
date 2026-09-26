@@ -43,12 +43,18 @@ Verifiche preventive verdi (`RLS-BASELINE.md`), deploy eseguito a mano dall'SQL 
 > Il codice fino alla revisione è in git dal 26/09 (commit `ef01c44`); OP-042, OP-043 e OP-049
 > sono ancora nell'albero di lavoro.
 >
+> ✅ **Sempre il 26/09, OP-030 e OP-031 chiusi** con `supabase/migrations/20260101000900_group_privacy.sql`,
+> applicata via MCP e provata prima e dopo con `VERIFICA_group_privacy.sql` (21 prove), via REST dalla
+> sessione di GruppoTest e a schermo. Erano più gravi di come erano scritti: un utente poteva
+> riscrivere il proprio `group_id` ed entrare nel gruppo di un'altra famiglia, e
+> `register_user_with_group` / `accept_invite` accettavano l'id di un utente qualsiasi. Dettaglio e
+> nuova linea di base degli advisor (16/3/7/1) in `RLS-BASELINE.md` § «Delta 26/09».
+> **Versione Beta 0.4.0 committata** (`238d837`, branch `revisione-op032`).
+>
 > 👉 **Da qui parte la prossima sessione:**
-> 1. OP-030 — `users_group` e `groups_account` leggibili da ogni utente autenticato: l'unica riserva del collaudo.
-> 2. OP-031 — sei funzioni `SECURITY DEFINER` invocabili senza aver fatto accesso.
-> 3. Commit e versione **Beta 0.4.0**.
-> 4. OP-048 — prova su telefono vero e PWA installata (il giro a 390 px era simulato).
-> 5. OP-022 — pianificare l'accantonamento automatico, poi `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
+> 1. Merge su `main` e pubblicazione del frontend (la destinazione di deploy non è documentata: va scritta).
+> 2. OP-048 — prova su telefono vero e PWA installata (il giro a 390 px era simulato), compresa una registrazione nuova con e senza invito.
+> 3. OP-022 — pianificare l'accantonamento automatico, poi `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
 
 **Quello che manca è guardare l'app** — e il 19/09, a sessione conclusa, si è cominciato. *(Situazione al 19/09, superata dall'aggiornamento qui sopra.)*
 
@@ -105,11 +111,13 @@ In più: la tile «Budget» in home compare solo se ci sono buste, quella «Obie
 | `20260101000600_grants.sql` | ✅ **Sì**, 19/09/2026 — correzione dei privilegi, vedi sotto |
 | `20260101000700_recurring_first_occurrence.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-044 |
 | `20260101000800_report_filter_paid_by.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-045 |
+| `20260101000900_group_privacy.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-030, OP-031 |
+| `VERIFICA_group_privacy.sql` | Rieseguibile: 21 prove come utente di GruppoTest e come anonimo, annulla tutto alla fine |
 | **`APPLICA_TUTTO.sql`** | Il pacchetto del 19/09: le prime otto in ordine, idempotente |
 | `VERIFICA_moduli_nuovi.sql` | Sole letture, rieseguibile. Dieci blocchi |
 | `VERIFICA_paid_by.sql` | Sole letture, rieseguibile |
 
-Le prime otto sono state applicate a mano dall'SQL editor, quindi **lo storico Supabase non le conosce**: `list_migrations` elenca solo le due del 26/09, applicate con `apply_migration`. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
+Le prime otto sono state applicate a mano dall'SQL editor, quindi **lo storico Supabase non le conosce**: `list_migrations` elenca solo le tre del 26/09, applicate con `apply_migration`. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
 
 ### La correzione dei privilegi del 19/09
 
@@ -351,8 +359,8 @@ Gira come `postgres`, proprietario della funzione: nessuna service key, nessun g
 - **`/famiglia`** mostra un avviso se `paid_by` non esiste a DB. Ora la colonna c'è: l'avviso non comparirà più, ma il codice di fallback in `familyService` resta e va bene lasciarlo (costa poco e protegge un ambiente non ancora migrato). Vale anche per il calcolo del conguaglio: se `get_settlement` non c'è, si ricade sul calcolo locale in parti uguali.
 - **Spese storiche** tutte a fondo comune: se alcune erano anticipi reali, si correggono dalla modale di modifica una per una.
 - **MCP di progetto configurato il 19/09, in sola lettura.** `.mcp.json` nella radice definisce un server `supabase-cloud` su `rxpbqwvnmaxjzlobgebc` con `--read-only`: a parità di nome oscura quello globale (Tefin Marine Hub) **solo dentro questa cartella**, e il database aziendale non è più raggiungibile da qui. Due conseguenze da ricordare: il file **non è versionato** (`.gitignore` riga 52), quindi su un altro PC va ricreato e il Passo 0 va rifatto; e in sola lettura **non si può fare `apply_migration`**, quindi il deploy via MCP richiede prima di togliere quel flag.
-- **Due letture RLS più larghe del necessario** (OP-030): `users_group` e `groups_account` hanno ciascuna due policy SELECT a `true`, quindi ogni utente autenticato legge nomi, preferenze e `push_token` di tutti, e l'elenco di tutti i gruppi. Preesistente, non introdotta dalle migrazioni nuove.
-- **Sei funzioni `SECURITY DEFINER` invocabili da `anon`** (OP-031): `accept_invite`, `cancel_invite`, `create_invite`, `notify_new_expense`, `register_user_with_group`, `validate_invite`, tutte raggiungibili via `/rest/v1/rpc/…` senza aver fatto accesso. Alcune lo devono essere per forza (registrazione, validazione dell'invito), altre no. Segnalato dagli advisor, baseline in `RLS-BASELINE.md`.
+- ✅ *Chiuso il 26/09, migrazione 900.* **Due letture RLS più larghe del necessario** (OP-030): `users_group` e `groups_account` hanno ciascuna due policy SELECT a `true`, quindi ogni utente autenticato legge nomi, preferenze e `push_token` di tutti, e l'elenco di tutti i gruppi. Preesistente, non introdotta dalle migrazioni nuove.
+- ✅ *Chiuso il 26/09, migrazione 900.* **Sei funzioni `SECURITY DEFINER` invocabili da `anon`** (OP-031): `accept_invite`, `cancel_invite`, `create_invite`, `notify_new_expense`, `register_user_with_group`, `validate_invite`, tutte raggiungibili via `/rest/v1/rpc/…` senza aver fatto accesso. Alcune lo devono essere per forza (registrazione, validazione dell'invito), altre no. Segnalato dagli advisor, baseline in `RLS-BASELINE.md`.
 
 ---
 

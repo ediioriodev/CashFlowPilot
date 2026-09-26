@@ -384,3 +384,88 @@ Resta l'unica affermazione di questo documento **non verificata sul database**, 
 sola lettura e servirebbe una scrittura per provarla. Si conferma in un minuto al primo caso del
 collaudo: creare una busta e **cambiarle il tetto** esercita `touch_updated_at`, salvare quote
 non uguali esercita `check_splits_sum`. Se entrambe passano, il punto è chiuso.
+
+
+---
+
+# Delta 26/09/2026 — OP-030 e OP-031
+
+Migrazione `supabase/migrations/20260101000900_group_privacy.sql`, applicata via MCP
+(`apply_migration`, versione `group_privacy`). Prova: `VERIFICA_group_privacy.sql`.
+
+## Cosa c'era davvero
+
+Rilette sul database prima di toccare niente, le due tabelle erano messe peggio di come le
+descriveva il controllo B:
+
+| Tabella | Policy | Problema |
+|---|---|---|
+| `users_group` | `Insert_users_group` (SELECT, `true`), `allow_authenticated_select_on_users_group` (SELECT, `true`) | Ogni autenticato leggeva tutte le righe, `push_token` compreso |
+| `users_group` | `Update record personale` (`auth.uid() = user_id`) | Nessun limite di colonna: **un utente poteva riscrivere il proprio `group_id` ed entrare nel gruppo di un'altra famiglia**. Provato prima della correzione (annullato) |
+| `groups_account` | `Insert_Group`, `allow_authenticated_select_on_groups_account` (SELECT, `true`) | Elenco di tutti i gruppi e dei loro amministratori |
+| `groups_account` | `Update gruppo proprio` | Ogni membro poteva riscrivere `admin` |
+
+E fra le funzioni `SECURITY DEFINER` aperte ad `anon`, tre credevano all'id passato dal client:
+`register_user_with_group(p_user_id)` creava un gruppo e una riga `users_group` per un utente
+qualsiasi (provato su un account di GruppoTest, annullato), `accept_invite(p_user_id)` aggiungeva
+chiunque a un gruppo, `create_invite(p_invited_by)` e `cancel_invite(p_user_id)` si fidavano
+dell'identità dichiarata. Non c'era nemmeno un vincolo di unicità su `users_group.user_id`.
+
+## Cosa c'è ora
+
+**Policy**
+
+| Tabella | Policy | Condizione |
+|---|---|---|
+| `users_group` | `Membri del proprio gruppo` (SELECT, authenticated) | `user_id = auth.uid() or group_id = current_group_id()` |
+| `users_group` | `Update record personale` | invariata |
+| `groups_account` | `Il proprio gruppo` (SELECT, authenticated) | `id = current_group_id()` |
+| `groups_account` | `Update gruppo proprio` | invariata |
+
+**Privilegi di tabella e di colonna** — `anon`: nessuno. `authenticated`:
+
+- `users_group`: SELECT su tutte le colonne **tranne `push_token`**; UPDATE solo su nome, cognome,
+  impostazioni, `push_token` e `view_mode` — non su `id`, `user_id`, `group_id`, `created_at`.
+  Il client scrive `push_token` ma non lo rilegge mai; le Edge Function lo leggono con `service_role`.
+- `groups_account`: SELECT; UPDATE solo su `group_name`.
+
+**Vincolo** — `users_group_user_id_key`, indice unico su `users_group.user_id`: RG-11
+(«un utente, un gruppo») non è più solo una convenzione.
+
+**Funzioni**
+
+| Funzione | anon | authenticated | Controllo aggiunto |
+|---|---|---|---|
+| `notify_new_expense` | ✗ | ✗ | È un trigger: il permesso si controlla alla creazione del trigger, non a ogni scatto |
+| `create_invite` | ✗ | ✓ | `p_invited_by = auth.uid()` |
+| `cancel_invite` | ✗ | ✓ | `p_user_id = auth.uid()` |
+| `register_user_with_group` | ✓ | ✓ | `can_join_group()` |
+| `accept_invite` | ✓ | ✓ | `can_join_group()` |
+| `validate_invite` | ✓ | ✓ | nessuno: mostra nome del gruppo e di chi invita a chi ha il codice |
+| `can_join_group` (nuova) | ✗ | ✗ | usata dalle due sopra |
+
+`can_join_group(p_user_id)` accetta solo un account creato da **meno di un giorno**, che **non
+appartiene ancora a nessun gruppo** e, se c'è una sessione, è **quello della sessione**.
+Registrazione e accettazione restano aperte ad `anon` perché con la conferma dell'email
+`signUp` non apre una sessione. Tutte con `search_path = public`.
+
+## Prove
+
+`VERIFICA_group_privacy.sql`, prima e dopo. Prima: KO su lettura di tutti gli utenti (10) e
+gruppi (8), `push_token`, cambio del proprio `group_id`, invito creato a nome di un altro,
+registrazione di un utente già iscritto. Dopo: **21 su 21 ok**. Via REST dalla sessione di
+GruppoTest: `users_group` → 2 righe, `groups_account` → 1, `push_token` → 403, PATCH di
+`group_id` → 403; da anonimo: `users_group` → 401, `create_invite` → 401,
+`register_user_with_group` su un iscritto → «Registrazione non valida o scaduta».
+A schermo: Famiglia, Inviti (creato e annullato), cambio di modalità salvato, Profilo; console pulita.
+
+## Nuova linea di base degli advisor security
+
+| Avviso | 19/09 | 26/09 | Nota |
+|---|---|---|---|
+| `function_search_path_mutable` | 21 | 16 | Restano funzioni `SECURITY INVOKER`: debito minore |
+| `anon_security_definer_function_executable` | 6 | 3 | `accept_invite`, `register_user_with_group`, `validate_invite`: volute |
+| `authenticated_security_definer_function_executable` | 8 | 7 | Comprende `current_group_id` e `is_group_admin`, che le policy chiamano |
+| `auth_leaked_password_protection` | 1 | 1 | Impostazione di Auth, non di schema |
+
+Un avviso in più di queste famiglie, dopo un deploy, è una regressione.
