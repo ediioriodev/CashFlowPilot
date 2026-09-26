@@ -67,7 +67,7 @@ function parseAmount(raw: string): number | null {
 export default function NuovaSpesaPage() {
   const router = useRouter();
   const { scope, isInitialized } = useScope();
-  const { range } = usePeriod();
+  const { range, loading: periodLoading } = usePeriod();
   const { user, profile } = useAuth();
 
   const [tipo, setTipo] = useState<Tipo>("spesa");
@@ -144,14 +144,16 @@ export default function NuovaSpesaPage() {
   }, [scope]);
 
   /* Mentre scegli la categoria, quanto resta nella sua busta. */
+  const { start, end } = range;
+  const userId = user?.id;
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || periodLoading || !userId) return;
     let alive = true;
-    budgetService.getStatus(range, scope).then((res) => alive && setBuste(res.data));
+    budgetService.getStatus({ start, end }, scope).then((res) => alive && setBuste(res.data));
     return () => {
       alive = false;
     };
-  }, [scope, isInitialized, range]);
+  }, [scope, isInitialized, periodLoading, userId, start, end]);
 
   const busta = useMemo(
     () => buste.find((b) => b.categoria.toLowerCase() === ambito.trim().toLowerCase()) ?? null,

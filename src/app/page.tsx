@@ -20,6 +20,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import PageHeader, { PageBody } from "@/components/layout/PageHeader";
 import PeriodBar from "@/components/layout/PeriodBar";
 import ScopeSwitch from "@/components/ui/ScopeSwitch";
+import InstallBanner from "@/components/install/InstallBanner";
 import {
   Button,
   Card,
@@ -35,6 +36,7 @@ import {
 import { AreaTrend, Bars, SplitBar, MiniBar, ProgressTrack } from "@/components/ui/charts";
 import { usePeriod } from "@/context/PeriodContext";
 import { useScope } from "@/context/ScopeContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePeriodExpenses } from "@/hooks/usePeriodExpenses";
 import { expenseService } from "@/services/expenseService";
 import { budgetService, budgetTotals, STATO_TONE, statoDi, type BudgetStatus } from "@/services/budgetService";
@@ -45,8 +47,10 @@ import { periodProgress } from "@/lib/finance";
 const CAT_ICON = Wallet;
 
 export default function OggiPage() {
-  const { range, label, progressLabel, daysLeft, isCurrentPeriod } = usePeriod();
+  const { range, label, progressLabel, daysLeft, isCurrentPeriod, loading: periodLoading } = usePeriod();
   const { scope, isInitialized } = useScope();
+  const { user } = useAuth();
+  const userId = user?.id;
   const { overview: o, loading, patch } = usePeriodExpenses();
   const [explain, setExplain] = useState(false);
   const [confirming, setConfirming] = useState<number | null>(null);
@@ -59,15 +63,16 @@ export default function OggiPage() {
   /* Le tile "Budget" e "Obiettivi" compaiono solo quando c'è qualcosa
      da mostrare: senza tetti o salvadanai (o prima delle migrazioni)
      restano le tile di sempre. */
+  const { start, end } = range;
   const loadModuli = useCallback(async () => {
-    if (!isInitialized) return;
+    if (!isInitialized || periodLoading || !userId) return;
     const [b, g] = await Promise.all([
-      budgetService.getStatus(range, scope),
+      budgetService.getStatus({ start, end }, scope),
       goalService.list(scope),
     ]);
     setBuste(b.data);
     setObiettivi(g.data);
-  }, [range, scope, isInitialized]);
+  }, [start, end, scope, isInitialized, periodLoading, userId]);
 
   useEffect(() => {
     loadModuli();
@@ -102,6 +107,8 @@ export default function OggiPage() {
       <PageBody
         main={
           <>
+            <InstallBanner />
+
             {/* ---------- 1. Il numero ---------- */}
             <Card className="p-5 lg:p-6">
               {loading ? (

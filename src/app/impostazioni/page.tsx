@@ -12,11 +12,14 @@ import { notificationService } from "@/services/notificationService";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useScope } from "@/context/ScopeContext";
+import { useInstall } from "@/context/InstallContext";
+import InstallCard from "@/components/install/InstallCard";
 
 export default function ImpostazioniPage() {
   const { settings, updateSettings, loading } = useAuth();
   const { toggleTheme, isDarkMode } = useTheme();
   const { refreshScope } = useScope();
+  const { openGuide } = useInstall();
 
   const [notifPermission, setNotifPermission] = useState<string>("default");
   const [isIOS, setIsIOS] = useState(false);
@@ -206,8 +209,11 @@ export default function ImpostazioniPage() {
               <div className="flex flex-col gap-3">
                 {isIOS && !isIOSInstalled && (
                   <Banner tone="warn">
-                    Su iOS le notifiche funzionano solo con l&apos;app installata. Da Safari usa{" "}
-                    <strong className="font-semibold">Aggiungi alla schermata Home</strong>.
+                    Su iOS le notifiche funzionano solo con l&apos;app installata.{" "}
+                    <button type="button" onClick={openGuide} className="font-semibold underline underline-offset-2">
+                      Guarda come installarla
+                    </button>
+                    .
                   </Banner>
                 )}
 
@@ -287,6 +293,9 @@ export default function ImpostazioniPage() {
                 )}
               </div>
             </Card>
+
+            {/* ---------- App: sparisce da sola se già installata ---------- */}
+            <InstallCard />
 
             {/* ---------- Aspetto ---------- */}
             <Card className="p-4 lg:p-5">

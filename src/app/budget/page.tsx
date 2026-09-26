@@ -27,6 +27,7 @@ import {
 import { Bars, ProgressTrack, MiniBar } from "@/components/ui/charts";
 import { usePeriod } from "@/context/PeriodContext";
 import { useScope } from "@/context/ScopeContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePeriodExpenses } from "@/hooks/usePeriodExpenses";
 import {
   budgetService,
@@ -55,8 +56,10 @@ function parseAmount(raw: string): number | null {
 
 export default function BudgetPage() {
   const router = useRouter();
-  const { range, label } = usePeriod();
+  const { range, label, loading: periodLoading } = usePeriod();
   const { scope, isInitialized } = useScope();
+  const { user } = useAuth();
+  const userId = user?.id;
   const { overview, loading: txLoading } = usePeriodExpenses();
 
   const [buste, setBuste] = useState<BudgetStatus[]>([]);
@@ -75,10 +78,14 @@ export default function BudgetPage() {
   const [nonce, setNonce] = useState(0);
   const ricarica = useCallback(() => setNonce((n) => n + 1), []);
 
+  /* Si parte solo con sessione, scope e periodo assestati, e si dipende
+     dalle date, non dall'oggetto range: prima ogni assestamento (scope da
+     localStorage, periodo personalizzato letto dopo) rilanciava la RPC. */
+  const { start, end } = range;
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || periodLoading || !userId) return;
     let alive = true;
-    budgetService.getStatus(range, scope).then((res) => {
+    budgetService.getStatus({ start, end }, scope).then((res) => {
       if (!alive) return;
       setBuste(res.data);
       setNeedsMigration(res.needsMigration);
@@ -88,7 +95,7 @@ export default function BudgetPage() {
     return () => {
       alive = false;
     };
-  }, [range, scope, isInitialized, nonce]);
+  }, [start, end, scope, isInitialized, periodLoading, userId, nonce]);
 
   const totali = useMemo(() => budgetTotals(buste), [buste]);
   const elapsed = useMemo(() => periodProgress(range), [range]);

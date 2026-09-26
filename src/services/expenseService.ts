@@ -379,6 +379,26 @@ export const expenseService = {
     if (error) throw error;
   },
 
+  /**
+   * Annulla una cancellazione logica rimettendo deleted_at a null sulla
+   * stessa riga. Ricreare la spesa (INSERT) cambiava id: le quote in
+   * expense_splits restavano legate al vecchio, lo scontrino si perdeva,
+   * partiva di nuovo la notifica al gruppo e una ricorrente rigenerava
+   * tutte le occorrenze future.
+   */
+  async restoreExpense(id: number, scope: 'C' | 'P' = 'C') {
+    const tableName = scope === 'C' ? 'spese' : 'spese_personali';
+    const { data, error } = await supabase
+      .from(tableName)
+      .update({ deleted_at: null })
+      .eq('id', id)
+      .select('id');
+
+    if (error) throw error;
+    // RLS che nega la riga non solleva errori: torna un elenco vuoto
+    if (!data?.length) throw new Error("Expense not restored");
+  },
+
   async getExpenseById(id: number, scope: 'C' | 'P' = 'C'): Promise<Spesa | null> {
     const tableName = scope === 'C' ? 'spese' : 'spese_personali';
     const { data, error } = await supabase

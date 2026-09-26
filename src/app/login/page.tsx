@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Eye, EyeOff, Mail, Wallet } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Mail, Smartphone, Wallet } from "lucide-react";
 
 import { supabase } from "@/lib/supabaseClient";
 import { translateAuthError } from "@/lib/formatUtils";
 import { Button, Card, Field, IconButton, inputClass } from "@/components/ui/kit";
+import { useInstall } from "@/context/InstallContext";
 
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -16,6 +17,7 @@ type View = "login" | "forgot" | "sent";
 export default function LoginPage() {
   const router = useRouter();
   const [view, setView] = useState<View>("login");
+  const { canInstall, install } = useInstall();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -198,6 +200,14 @@ export default function LoginPage() {
             </div>
           )}
         </Card>
+
+        {/* Chi arriva qui dal browser del telefono spesso non ha ancora l'app:
+            è il momento giusto per proporla. Su desktop non serve. */}
+        {canInstall && (
+          <Button variant="ghost" icon={Smartphone} onClick={() => install()} className="mt-4 w-full lg:hidden">
+            Installa l&apos;app sul telefono
+          </Button>
+        )}
       </div>
     </main>
   );

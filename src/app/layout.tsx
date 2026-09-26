@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import { ModeProvider } from "@/context/ModeContext";
 import { ScopeProvider } from "@/context/ScopeContext";
 import { PeriodProvider } from "@/context/PeriodContext";
+import { InstallProvider } from "@/context/InstallContext";
 import AppShell from "@/components/layout/AppShell";
 import AppToaster from "@/components/layout/AppToaster";
 import DebugLog from "@/components/DebugLog";
@@ -69,6 +70,21 @@ const bootstrap = `
   // MODE_DEFAULT e a getSnapshot() in ModeContext — se divergono,
   // React ricalcola dopo l'idratazione e i blocchi lampeggiano.
   document.documentElement.setAttribute('data-mode', m === 'advanced' ? 'advanced' : 'simple');
+
+  // Installazione: Chrome/Edge/Samsung lanciano beforeinstallprompt una
+  // volta sola e spesso PRIMA che React idrati. Se nessuno lo ascolta in
+  // quell'istante è perso fino al prossimo caricamento: lo si trattiene
+  // qui e InstallContext lo raccoglie quando arriva.
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__cfpInstallEvt = e;
+    window.dispatchEvent(new Event('cfp:installable'));
+  });
+  window.addEventListener('appinstalled', function () {
+    window.__cfpInstallEvt = null;
+    window.__cfpInstalled = true;
+    window.dispatchEvent(new Event('cfp:installed'));
+  });
 })();
 `;
 
@@ -88,9 +104,11 @@ export default function RootLayout({
             <ModeProvider>
               <ScopeProvider>
                 <PeriodProvider>
-                  <AppShell>{children}</AppShell>
-                  <AppToaster />
-                  {process.env.NODE_ENV === "development" && <DebugLog />}
+                  <InstallProvider>
+                    <AppShell>{children}</AppShell>
+                    <AppToaster />
+                    {process.env.NODE_ENV === "development" && <DebugLog />}
+                  </InstallProvider>
                 </PeriodProvider>
               </ScopeProvider>
             </ModeProvider>

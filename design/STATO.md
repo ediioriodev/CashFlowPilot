@@ -9,8 +9,8 @@ Questo è il documento da leggere per primo a inizio sessione. Dice dove siamo, 
 | **`RLS-BASELINE.md`** | **Esito dei controlli del 19/09 e unica copia delle policy RLS attive.** Baseline per il confronto dopo il deploy. |
 | `PRE-RILASCIO.md` | La procedura dei controlli sul database, via MCP e in sola lettura. **Eseguita il 19/09: cancello verde.** Da rifare prima di ogni nuovo passaggio. |
 | `DB-APPLICAZIONE.md` | Come applicare le migrazioni, a mano o via MCP. **Eseguito il 19/09.** Contiene anche cosa comporta pianificare l'accantonamento automatico (OP-022). |
-| **`COLLAUDO.md`** | **I sei casi di collaudo a schermo** (OP-021), con l'esito atteso e cosa significa se non torna. **Da qui parte la prossima sessione.** |
-| **`REVISIONE.md`** | **Registro dei rilievi della revisione in corso** (OP-021 + OP-032): cosa non torna guardando l'app, un rilievo alla volta. Il piano d'azione si apre a revisione conclusa. |
+| **`COLLAUDO.md`** | **I sei casi di collaudo a schermo** (OP-021), con l'esito atteso e cosa significa se non torna. **Passati tutti il 26/09.** |
+| **`REVISIONE.md`** | **Registro dei rilievi della revisione** (OP-021 + OP-032), chiusa il 26/09 in due giri: rilievi, cause, correzioni e prove. |
 | `IMPLEMENTAZIONE.md` | Dettaglio di cosa è stato riscritto e perché |
 | `SPEC-MODULI-NUOVI.md` | Specifica dei moduli che richiedono tabelle nuove |
 | `DIREZIONE-A.md` | Specifica di prodotto: linguaggio, formule, vocabolario grafico |
@@ -37,11 +37,18 @@ Verifiche preventive verdi (`RLS-BASELINE.md`), deploy eseguito a mano dall'SQL 
 > (OP-045), ciascuna provata con un caso costruito prima e verificata a database e a schermo
 > (`REVISIONE.md §6.4`). OP-032, OP-044 e OP-045 chiusi.
 >
+> Sempre il 26/09, dopo la chiusura: **OP-042** (una sola chiamata a `get_budget_status` per
+> apertura), **OP-043** («Annulla» ripristina la stessa spesa con quote e scontrino) e **OP-049**
+> (installazione dell'app con un tocco, `docs/installazione-app.md`), tutti verificati.
+> Il codice fino alla revisione è in git dal 26/09 (commit `ef01c44`); OP-042, OP-043 e OP-049
+> sono ancora nell'albero di lavoro.
+>
 > 👉 **Da qui parte la prossima sessione:**
-> 1. OP-048 — prova su telefono vero e PWA installata (il giro a 390 px era simulato).
-> 2. OP-022 — pianificare l'accantonamento automatico, poi `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
-> 3. OP-030 — `users_group` e `groups_account` leggibili da ogni utente autenticato: l'unica riserva del collaudo.
-> 4. Committare: il codice del 19/09 e del 26/09 non è ancora in git.
+> 1. OP-030 — `users_group` e `groups_account` leggibili da ogni utente autenticato: l'unica riserva del collaudo.
+> 2. OP-031 — sei funzioni `SECURITY DEFINER` invocabili senza aver fatto accesso.
+> 3. Commit e versione **Beta 0.4.0**.
+> 4. OP-048 — prova su telefono vero e PWA installata (il giro a 390 px era simulato).
+> 5. OP-022 — pianificare l'accantonamento automatico, poi `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
 
 **Quello che manca è guardare l'app** — e il 19/09, a sessione conclusa, si è cominciato. *(Situazione al 19/09, superata dall'aggiornamento qui sopra.)*
 
@@ -65,11 +72,12 @@ Finché il collaudo non è fatto, i quattro moduli nuovi sono «scritti e instal
 | Famiglia — chi ha anticipato, conguaglio | ✅ | — | **In uso** |
 | Fisse e abbonamenti (`/ricorrenti`) | ✅ | — | **In uso** |
 | Fondo comune (`paid_by`) | ✅ | ✅ applicata 16/09 | **In uso e verificata** |
-| **Budget a buste** | ✅ | ✅ applicata 19/09 | Installata, **da collaudare** |
-| **Obiettivi di risparmio** | ✅ | ✅ applicata 19/09 | Installata, **da collaudare**. L'accantonamento automatico non è ancora pianificato (OP-022) |
-| **Quote personalizzate + conguagli chiusi** | ✅ | ✅ applicata 19/09 | Installata, **da collaudare** |
-| **Scontrini** | ✅ | ✅ applicata 19/09 | Installata, **da collaudare**. Bucket verificato privato |
-| **Modalità Semplice** | ✅ | ✅ `view_mode` 19/09 | **In uso.** Segue l'account (OP-024) e il default è Semplice (OP-025) |
+| **Budget a buste** | ✅ | ✅ applicata 19/09 | **In uso, collaudata il 26/09** (OP-021) |
+| **Obiettivi di risparmio** | ✅ | ✅ applicata 19/09 | **In uso, collaudata il 26/09**. L'accantonamento automatico non è ancora pianificato (OP-022) e la pagina lo dice |
+| **Quote personalizzate + conguagli chiusi** | ✅ | ✅ applicata 19/09, corretta 26/09 (700) | **In uso, collaudata il 26/09** |
+| **Scontrini** | ✅ | ✅ applicata 19/09 | **In uso, collaudata il 26/09**. Bucket privato, URL firmate da 5 minuti |
+| **Modalità Semplice** | ✅ | ✅ `view_mode` 19/09 | **In uso.** Segue l'account (OP-024), il default è Semplice (OP-025), semplificata schermata per schermata il 26/09 (OP-047) |
+| **Installazione in app** | ✅ | — | **In uso** (OP-049). Prova su telefono vero in OP-048 |
 
 ### La rete per i moduli non migrati resta, e va bene così
 
@@ -95,11 +103,13 @@ In più: la tile «Budget» in home compare solo se ci sono buste, quella «Obie
 | `20260101000400_receipts.sql` | ✅ **Sì**, 19/09/2026 |
 | `20260101000500_view_mode.sql` | ✅ **Sì**, 19/09/2026 — `users_group.view_mode` (OP-024) |
 | `20260101000600_grants.sql` | ✅ **Sì**, 19/09/2026 — correzione dei privilegi, vedi sotto |
-| **`APPLICA_TUTTO.sql`** | Il pacchetto unico: tutte e otto in ordine, idempotente |
+| `20260101000700_recurring_first_occurrence.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-044 |
+| `20260101000800_report_filter_paid_by.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-045 |
+| **`APPLICA_TUTTO.sql`** | Il pacchetto del 19/09: le prime otto in ordine, idempotente |
 | `VERIFICA_moduli_nuovi.sql` | Sole letture, rieseguibile. Dieci blocchi |
 | `VERIFICA_paid_by.sql` | Sole letture, rieseguibile |
 
-Applicate a mano dall'SQL editor, quindi **lo storico Supabase resta vuoto**: `list_migrations` non le conosce. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
+Le prime otto sono state applicate a mano dall'SQL editor, quindi **lo storico Supabase non le conosce**: `list_migrations` elenca solo le due del 26/09, applicate con `apply_migration`. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
 
 ### La correzione dei privilegi del 19/09
 
@@ -223,6 +233,9 @@ git config --global --add safe.directory E:/Dev/CashFlowPilot
 
 ## 7. Da fare — in ordine
 
+> **Aggiornamento 26/09/2026.** Le priorità 0 e 1 qui sotto sono **fatte**: collaudo OP-021 sei
+> casi su sei, revisione OP-032 chiusa in due giri. Restano come storico. L'ordine attuale è in §1.
+>
 > **Il giro era: verifiche → deploy → test.** I primi due passi sono fatti il 19/09. Quello che resta è il terzo, ed è il più lungo: guardare l'app.
 
 ### ✅ Fatto · Controlli preventivi sul database, via MCP — 19/09/2026

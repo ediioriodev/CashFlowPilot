@@ -84,44 +84,65 @@ async function owner(scope: Scope): Promise<{ groupId: number | null; userId: st
   return { groupId: await groupService.getGroupId(), userId: null };
 }
 
+async function fetchStatus(range: Range, scope: Scope): Promise<ModuleResult<BudgetStatus[]>> {
+  const { groupId, userId } = await owner(scope);
+  if (scope === "C" && !groupId) return ok([]);
+  if (scope === "P" && !userId) return ok([]);
+
+  const { data, error } = await supabase.rpc("get_budget_status", {
+    p_scope: scope,
+    p_group_id: groupId,
+    p_user_id: userId,
+    p_start: range.start,
+    p_end: range.end,
+  });
+
+  if (error) {
+    if (isMissingModule(error)) return missing([]);
+    console.error("Errore nel caricamento dei budget:", error);
+    return failed([], "Non siamo riusciti a caricare i budget.");
+  }
+
+  const rows = ((data ?? []) as StatusRow[]).map((r) => {
+    const tetto = Number(r.tetto || 0);
+    const spesoReale = Number(r.speso_reale || 0);
+    const spesoPrevisto = Number(r.speso_previsto || 0);
+    const percentuale = tetto > 0 ? (spesoReale / tetto) * 100 : 0;
+    return {
+      categoria: r.categoria,
+      tetto: round2(tetto),
+      spesoReale: round2(spesoReale),
+      spesoPrevisto: round2(spesoPrevisto),
+      percentuale: Math.round(percentuale * 10) / 10,
+      residuo: round2(tetto - spesoReale),
+      stato: statoDi(percentuale),
+    } satisfies BudgetStatus;
+  });
+
+  return ok(rows.sort((a, b) => b.percentuale - a.percentuale));
+}
+
+/* Richieste identiche partite insieme (doppio effetto di StrictMode,
+   più pagine che chiedono lo stesso periodo) condividono la stessa
+   promise: una sola chiamata a get_budget_status finché è in volo. */
+const inFlight = new Map<string, Promise<ModuleResult<BudgetStatus[]>>>();
+
 export const budgetService = {
   /** Stato di tutte le buste nel periodo. */
-  async getStatus(range: Range, scope: Scope): Promise<ModuleResult<BudgetStatus[]>> {
-    const { groupId, userId } = await owner(scope);
-    if (scope === "C" && !groupId) return ok([]);
-    if (scope === "P" && !userId) return ok([]);
-
-    const { data, error } = await supabase.rpc("get_budget_status", {
-      p_scope: scope,
-      p_group_id: groupId,
-      p_user_id: userId,
-      p_start: range.start,
-      p_end: range.end,
-    });
-
-    if (error) {
-      if (isMissingModule(error)) return missing([]);
-      console.error("Errore nel caricamento dei budget:", error);
-      return failed([], "Non siamo riusciti a caricare i budget.");
+  getStatus(range: Range, scope: Scope): Promise<ModuleResult<BudgetStatus[]>> {
+    const key = `${scope}|${range.start}|${range.end}`;
+    let p = inFlight.get(key);
+    if (!p) {
+      p = fetchStatus(range, scope)
+        .catch((e) => {
+          // senza catch una promise rifiutata lasciava /budget su «Caricamento in corso…»
+          console.error("Errore nel caricamento dei budget:", e);
+          return failed<BudgetStatus[]>([], "Non siamo riusciti a caricare i budget.");
+        })
+        .finally(() => inFlight.delete(key));
+      inFlight.set(key, p);
     }
-
-    const rows = ((data ?? []) as StatusRow[]).map((r) => {
-      const tetto = Number(r.tetto || 0);
-      const spesoReale = Number(r.speso_reale || 0);
-      const spesoPrevisto = Number(r.speso_previsto || 0);
-      const percentuale = tetto > 0 ? (spesoReale / tetto) * 100 : 0;
-      return {
-        categoria: r.categoria,
-        tetto: round2(tetto),
-        spesoReale: round2(spesoReale),
-        spesoPrevisto: round2(spesoPrevisto),
-        percentuale: Math.round(percentuale * 10) / 10,
-        residuo: round2(tetto - spesoReale),
-        stato: statoDi(percentuale),
-      } satisfies BudgetStatus;
-    });
-
-    return ok(rows.sort((a, b) => b.percentuale - a.percentuale));
+    return p;
   },
 
   /** Una sola busta: per la pagina di dettaglio. */

@@ -151,7 +151,6 @@ export default function MovimentiPage() {
       remove(t.id);
       setToDelete(null);
       toast.success(`"${t.negozio || t.ambito}" eliminato`, {
-        description: "Puoi ripristinarlo ricreandolo.",
         action: { label: "Annulla", onClick: () => restore(t) },
       });
     } catch (e) {
@@ -162,10 +161,11 @@ export default function MovimentiPage() {
     }
   };
 
-  // "Annulla" ricrea il movimento: il soft-delete a DB non espone un ripristino.
+  // "Annulla" ripristina la stessa riga: quote, scontrino e chi ha pagato restano com'erano.
   const restore = async (t: Spesa) => {
+    if (!t.id) return;
     try {
-      await expenseService.createExpense({ ...t, id: undefined });
+      await expenseService.restoreExpense(t.id, scope);
       await reload();
       toast.success("Movimento ripristinato");
     } catch (e) {

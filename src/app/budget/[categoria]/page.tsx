@@ -34,6 +34,7 @@ import {
 import { Bars, SplitBar, ProgressTrack } from "@/components/ui/charts";
 import { usePeriod } from "@/context/PeriodContext";
 import { useScope } from "@/context/ScopeContext";
+import { useAuth } from "@/context/AuthContext";
 import { usePeriodExpenses } from "@/hooks/usePeriodExpenses";
 import { budgetService, STATO_LABEL, STATO_TONE, type BudgetStatus } from "@/services/budgetService";
 import { MIGRATION } from "@/lib/moduleState";
@@ -59,8 +60,10 @@ function parseAmount(raw: string): number | null {
  */
 export default function DettaglioBudgetPage({ params }: { params: Promise<{ categoria: string }> }) {
   const categoria = decodeURIComponent(use(params).categoria);
-  const { range, label, daysLeft } = usePeriod();
+  const { range, label, daysLeft, loading: periodLoading } = usePeriod();
   const { scope, isInitialized } = useScope();
+  const { user } = useAuth();
+  const userId = user?.id;
   const { transactions, loading: txLoading } = usePeriodExpenses();
 
   const [busta, setBusta] = useState<BudgetStatus | null>(null);
@@ -77,10 +80,12 @@ export default function DettaglioBudgetPage({ params }: { params: Promise<{ cate
   const [nonce, setNonce] = useState(0);
   const ricarica = useCallback(() => setNonce((n) => n + 1), []);
 
+  // stesse condizioni di /budget: si parte a sessione e periodo assestati
+  const { start, end } = range;
   useEffect(() => {
-    if (!isInitialized) return;
+    if (!isInitialized || periodLoading || !userId) return;
     let alive = true;
-    budgetService.getOne(categoria, range, scope).then((res) => {
+    budgetService.getOne(categoria, { start, end }, scope).then((res) => {
       if (!alive) return;
       setBusta(res.data);
       setNeedsMigration(res.needsMigration);
@@ -89,7 +94,7 @@ export default function DettaglioBudgetPage({ params }: { params: Promise<{ cate
     return () => {
       alive = false;
     };
-  }, [categoria, range, scope, isInitialized, nonce]);
+  }, [categoria, start, end, scope, isInitialized, periodLoading, userId, nonce]);
 
   /* ---- i movimenti di questa categoria ---- */
   const movimenti = useMemo(

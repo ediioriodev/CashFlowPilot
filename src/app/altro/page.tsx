@@ -7,6 +7,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import PageHeader, { PageBody } from "@/components/layout/PageHeader";
 import { Avatar, Card, Toggle } from "@/components/ui/kit";
 import ModeSwitch from "@/components/ui/ModeSwitch";
+import InstallCard from "@/components/install/InstallCard";
 import { useMode } from "@/context/ModeContext";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
@@ -49,6 +50,8 @@ export default function AltroPage() {
                 Modifica
               </Link>
             </Card>
+
+            <InstallCard />
 
             <Card>
               <ul>

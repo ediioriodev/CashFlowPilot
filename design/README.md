@@ -2,7 +2,7 @@
 
 > **La Direzione A è implementata in app, in entrambe le modalità.** I mockup restano come riferimento e come laboratorio per le decisioni ancora aperte.
 > Punto di ripresa a inizio sessione: **[STATO.md](STATO.md)**.
-> Il passo che manca è portare le migrazioni sul database. Il giro era **[PRE-RILASCIO.md](PRE-RILASCIO.md)** (verifiche) → **[DB-APPLICAZIONE.md](DB-APPLICAZIONE.md)** (deploy) → collaudo: **le verifiche sono fatte il 19/09 e il cancello è verde** ([RLS-BASELINE.md](RLS-BASELINE.md)), quindi si riparte dal deploy.
+> Il giro **[PRE-RILASCIO.md](PRE-RILASCIO.md)** (verifiche) → **[DB-APPLICAZIONE.md](DB-APPLICAZIONE.md)** (deploy) → collaudo è **concluso**: verifiche e deploy il 19/09, collaudo ([COLLAUDO.md](COLLAUDO.md)) e revisione ([REVISIONE.md](REVISIONE.md)) passati il 26/09. Le migrazioni sono tutte applicate. Cosa resta: [STATO.md](STATO.md) §1.
 
 | File | Cosa contiene |
 |---|---|
@@ -11,7 +11,7 @@
 | `PRE-RILASCIO.md` | La procedura dei controlli sul database, via MCP e in sola lettura. Eseguita il 19/09; da rifare prima di ogni nuovo passaggio. |
 | **`DB-APPLICAZIONE.md`** | Come applicare le migrazioni: a mano, con il CLI o via MCP. |
 | **`COLLAUDO.md`** | **I sei casi di collaudo a schermo** (OP-021), con l'esito atteso e cosa significa se non torna. |
-| **`REVISIONE.md`** | **Registro dei rilievi della revisione in corso** (OP-021 + OP-032): cosa non torna guardando l'app, un rilievo alla volta. Il piano d'azione si apre a revisione conclusa. |
+| **`REVISIONE.md`** | **Registro dei rilievi della revisione** (OP-021 + OP-032), chiusa il 26/09 in due giri: rilievi, cause, correzioni e prove. |
 | `IMPLEMENTAZIONE.md` | Dettaglio di cosa è stato riscritto in app e perché. |
 | `SPEC-MODULI-NUOVI.md` | Specifica dei moduli che richiedono nuove tabelle. Implementata il 17/09. |
 | **`mockups.html`** | Il laboratorio interattivo: mockup navigabili, editor dei token, valutazione ed export. |
