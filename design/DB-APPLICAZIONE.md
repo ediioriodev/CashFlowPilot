@@ -98,6 +98,12 @@ Il blocco 8 di `VERIFICA_moduli_nuovi.sql` conta quante spese sono a fondo comun
 
 ### 3. L'accantonamento automatico va pianificato — OP-022
 
+> ✅ **Fatto il 26/09/2026** con `20260101001000_schedule_auto_contributions.sql`: job pg_cron
+> `accantonamenti-automatici` ogni giorno alle 04:00 UTC, data calcolata nel fuso di Roma. Il giorno
+> è già limitato a 1-28 (`goals_auto_giorno_check`), quindi il caso di febbraio descritto sotto non si
+> presenta. Per spegnerlo: `select cron.unschedule('accantonamenti-automatici');` e
+> `AUTO_CONTRIBUTIONS_SCHEDULED = false` in `src/lib/moduleState.ts`.
+
 **Che cos'è.** Un obiettivo di risparmio può avere due campi: `auto_importo` (quanto mettere da parte) e `auto_giorno` (in che giorno del mese). Sono una promessa che qualcuno deve mantenere: il database non ha un orologio proprio, quindi finché nessuno chiama `run_auto_contributions()` quei due campi restano numeri scritti e basta, e il salvadanaio non si riempie.
 
 **Cosa fa esattamente.** Una `insert ... select` sola. Per ogni obiettivo non archiviato che ha `auto_importo` valorizzato e `auto_giorno` uguale al giorno del mese della data ricevuta, inserisce un versamento da `auto_importo` in `goal_contributions`, marcato `automatico = true`, **saltando** gli obiettivi che hanno già un versamento automatico in quel mese. Restituisce quante righe ha scritto.

@@ -54,7 +54,10 @@ Verifiche preventive verdi (`RLS-BASELINE.md`), deploy eseguito a mano dall'SQL 
 > 👉 **Da qui parte la prossima sessione:**
 > 1. Merge su `main` e pubblicazione del frontend (la destinazione di deploy non è documentata: va scritta).
 > 2. OP-048 — prova su telefono vero e PWA installata (il giro a 390 px era simulato), compresa una registrazione nuova con e senza invito.
-> 3. OP-022 — pianificare l'accantonamento automatico, poi `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
+>
+> ✅ **OP-022 chiuso il 26/09**: job pg_cron `accantonamenti-automatici` (ogni giorno alle 04:00 UTC,
+> migrazione `20260101001000_schedule_auto_contributions.sql`) e `AUTO_CONTRIBUTIONS_SCHEDULED = true`.
+> Primo versamento reale atteso il 20/10 (obiettivo di un gruppo reale impostato sul giorno 20).
 
 **Quello che manca è guardare l'app** — e il 19/09, a sessione conclusa, si è cominciato. *(Situazione al 19/09, superata dall'aggiornamento qui sopra.)*
 
@@ -112,12 +115,13 @@ In più: la tile «Budget» in home compare solo se ci sono buste, quella «Obie
 | `20260101000700_recurring_first_occurrence.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-044 |
 | `20260101000800_report_filter_paid_by.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-045 |
 | `20260101000900_group_privacy.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-030, OP-031 |
+| `20260101001000_schedule_auto_contributions.sql` | ✅ **Sì**, 26/09/2026 via MCP — OP-022, job pg_cron |
 | `VERIFICA_group_privacy.sql` | Rieseguibile: 21 prove come utente di GruppoTest e come anonimo, annulla tutto alla fine |
 | **`APPLICA_TUTTO.sql`** | Il pacchetto del 19/09: le prime otto in ordine, idempotente |
 | `VERIFICA_moduli_nuovi.sql` | Sole letture, rieseguibile. Dieci blocchi |
 | `VERIFICA_paid_by.sql` | Sole letture, rieseguibile |
 
-Le prime otto sono state applicate a mano dall'SQL editor, quindi **lo storico Supabase non le conosce**: `list_migrations` elenca solo le tre del 26/09, applicate con `apply_migration`. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
+Le prime otto sono state applicate a mano dall'SQL editor, quindi **lo storico Supabase non le conosce**: `list_migrations` elenca solo le quattro del 26/09, applicate con `apply_migration`. Era già così per `paid_by` ed è una scelta, non una dimenticanza — vedi `DB-APPLICAZIONE.md`.
 
 ### La correzione dei privilegi del 19/09
 
@@ -330,7 +334,13 @@ Da verificare a schermo: `COLLAUDO.md` caso 5.
 
 Restano aperte le decisioni di lingua (§Priorità 4) e i due debiti minori del §8.
 
-### Priorità 3 · Pianificare `run_auto_contributions()` — OP-022
+### ✅ Fatto 26/09 · Pianificare `run_auto_contributions()` — OP-022
+
+Job `accantonamenti-automatici`, `0 4 * * *` (UTC), che passa la data nel fuso di Roma. Il testo
+qui sotto resta come storia della decisione. Nota: il caso «auto_giorno fra 29 e 31» non esiste,
+`goals_auto_giorno_check` limita il giorno a 1-28.
+
+#### Com'era
 Serve perché l'accantonamento automatico degli obiettivi funzioni da solo. Dettagli in `DB-APPLICAZIONE.md`.
 Finché non la pianifichi gli obiettivi funzionano lo stesso: i versamenti si fanno a mano dall'app.
 

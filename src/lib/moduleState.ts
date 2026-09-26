@@ -75,8 +75,9 @@ export const failed = <T,>(data: T, error: string): ModuleResult<T> => ({ data, 
 /**
  * L'accantonamento automatico degli obiettivi lo esegue
  * public.run_auto_contributions(), che però gira solo se è pianificata
- * con pg_cron (OP-022, design/DB-APPLICAZIONE.md). Finché non lo è, la UI
- * non deve promettere versamenti che non partiranno: va messo a true
- * nello stesso momento in cui si crea il job.
+ * con pg_cron (OP-022, design/DB-APPLICAZIONE.md). Il job
+ * «accantonamenti-automatici» esiste dal 26/09/2026 (migrazione 1000):
+ * se lo si toglie, questo torna a false, perché la UI non prometta
+ * versamenti che non partiranno.
  */
-export const AUTO_CONTRIBUTIONS_SCHEDULED = false;
+export const AUTO_CONTRIBUTIONS_SCHEDULED = true;
