@@ -1,63 +1,92 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { CategoryStats, MerchantStats } from '@/types/reports';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { formatCurrency } from '@/lib/formatUtils';
+import React from "react";
+import { Store, Tag } from "lucide-react";
+import { CategoryStats, MerchantStats } from "@/types/reports";
+import { formatCurrency } from "@/lib/formatUtils";
+import { Card, CardHeader, CatRow, EmptyState, Skeleton } from "@/components/ui/kit";
+import { StackBar } from "@/components/ui/charts";
 
 interface BreakdownChartProps {
   data: (CategoryStats | MerchantStats)[];
   title: string;
-  type: 'category' | 'merchant';
+  type: "category" | "merchant";
+  loading?: boolean;
 }
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f43f5e', '#84cc16'];
+/** Sfumature del solo accento: una scala, non dieci colori scorrelati. */
+const shade = (i: number) => `color-mix(in srgb, var(--accent) ${Math.max(20, 100 - i * 12)}%, var(--surface-3))`;
 
-export default function BreakdownChart({ data, title, type }: BreakdownChartProps) {
-  if (!data || data.length === 0) {
-    return (
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 h-80 flex items-center justify-center text-gray-500">
-        Nessun dato disponibile
-      </div>
-    );
-  }
-
-  const dataKey = type === 'category' ? 'category' : 'merchant';
-  const valueKey = 'total';
+export default function BreakdownChart({ data, title, type, loading }: BreakdownChartProps) {
+  const rows = data.map((d) => ({
+    name:
+      (type === "category" ? (d as CategoryStats).category : (d as MerchantStats).merchant)?.trim() ||
+      (type === "category" ? "Senza categoria" : "Senza negozio"),
+    total: Number(d.total),
+    count: Number(d.cnt ?? 0),
+  }));
+  const max = rows[0]?.total || 1;
+  const Icon = type === "category" ? Tag : Store;
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
-      <h3 className="text-lg font-semibold mb-6 text-gray-800 dark:text-gray-100">{title}</h3>
-      <div className="h-80 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart 
-            layout="vertical" 
-            data={data} 
-            margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-          >
-            <XAxis type="number" hide />
-            <YAxis 
-              dataKey={dataKey} 
-              type="category" 
-              width={100} 
-              tick={{ fontSize: 12, fill: '#6b7280' }}
-              tickLine={false}
-              axisLine={false}
-              interval={0}
-            />
-            <Tooltip 
-              formatter={(value: number | undefined) => formatCurrency(value || 0)}
-              cursor={{ fill: 'transparent' }}
-              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-            />
-            <Bar dataKey={valueKey} name="Totale" radius={[0, 4, 4, 0]} barSize={20}>
-              {data.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+    <Card className="p-4 lg:p-5">
+      <CardHeader title={title} hint={rows.length ? `${rows.length} ${rows.length === 1 ? "voce" : "voci"}` : undefined} />
+
+      {loading ? (
+        <div className="space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <EmptyState icon={Icon} title="Nessun dato nel periodo" body="Prova a cambiare intervallo o filtri." />
+      ) : (
+        <>
+          <StackBar
+            height={16}
+            ariaLabel={`Composizione: ${title}`}
+            items={rows.slice(0, 8).map((r, i) => ({ label: r.name, value: r.total, color: shade(i) }))}
+          />
+          <div className="mt-4 flex flex-col">
+            {rows.slice(0, 12).map((r, i) => (
+              <CatRow
+                key={r.name}
+                icon={Icon}
+                name={r.name}
+                sub={r.count ? `${r.count} ${r.count === 1 ? "movimento" : "movimenti"}` : undefined}
+                percent={(r.total / max) * 100}
+                tone={shade(i)}
+                value={formatCurrency(r.total)}
+              />
+            ))}
+          </div>
+
+          <details className="mt-4">
+            <summary className="min-h-10 cursor-pointer text-xs font-semibold text-accent">
+              Mostra i dati in tabella
+            </summary>
+            <table className="mt-2 w-full border-collapse text-xs">
+              <caption className="sr-only">{title}</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="border-b border-line py-2 text-left font-semibold text-faint">
+                    {type === "category" ? "Categoria" : "Negozio"}
+                  </th>
+                  <th scope="col" className="border-b border-line py-2 text-right font-semibold text-faint">Totale</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.name}>
+                    <td className="border-b border-line py-2 text-muted">{r.name}</td>
+                    <td className="tnum border-b border-line py-2 text-right">{formatCurrency(r.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        </>
+      )}
+    </Card>
   );
 }

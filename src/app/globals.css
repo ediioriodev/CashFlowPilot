@@ -2,37 +2,239 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ============================================================
+   DESIGN TOKENS — Direzione A "Ledger"
+   Unica fonte di verità per colori, raggi e spazi.
+   Non usare mai colori Tailwind grezzi (gray-800, blue-600…)
+   nei componenti: usare le utility semantiche generate sotto.
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* superfici */
+  --bg:            #F5F4F1;
+  --surface:       #FFFFFF;
+  --surface-2:     #FAF9F7;
+  --surface-3:     #F0EEEA;
+  --line:          #E3E0DA;
+  --line-strong:   #CFCBC3;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* testo — contrasti verificati su --surface
+     ink 15.8:1 · muted 8.0:1 · faint 5.0:1 */
+  --text:          #14171C;
+  --muted:         #4B5159;
+  --faint:         #6B717A;
 
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
+  /* accento */
+  --accent:        #153E75;
+  --accent-ink:    #FFFFFF;
+  --accent-soft:   #E7EDF7;
+
+  /* semantici (mai usati da soli: sempre con icona o parola) */
+  --pos:           #0F7A4D;
+  --pos-soft:      #E3F3EB;
+  --neg:           #B42318;
+  --neg-soft:      #FBE9E7;
+  --warn:          #B54708;
+  --warn-soft:     #FDF0E3;
+
+  /* forma */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   18px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(20 23 28 / 0.05);
+  --shadow-md: 0 8px 24px -12px rgb(20 23 28 / 0.22);
+  --shadow-lg: 0 20px 48px -20px rgb(20 23 28 / 0.30);
+}
 
 .dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --bg:            #0E1013;
+  --surface:       #171A1F;
+  --surface-2:     #1D2026;
+  --surface-3:     #23272E;
+  --line:          #282D35;
+  --line-strong:   #39404A;
+
+  /* ink 15.1:1 · muted 7.5:1 · faint 5.1:1 su --surface */
+  --text:          #F2F3F5;
+  --muted:         #A9B0BA;
+  --faint:         #868E99;
+
+  --accent:        #7FA9EA;
+  --accent-ink:    #0A1220;
+  --accent-soft:   #1B2536;
+
+  --pos:           #4ED08B;
+  --pos-soft:      #14281F;
+  --neg:           #FF8A80;
+  --neg-soft:      #2B1917;
+  --warn:          #F0A868;
+  --warn-soft:     #2A1F14;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-md: 0 12px 30px -14px rgb(0 0 0 / 0.70);
+  --shadow-lg: 0 24px 56px -22px rgb(0 0 0 / 0.80);
+}
+
+/* ============================================================
+   Mappatura verso Tailwind v4
+   Genera: bg-surface, text-muted, border-line, bg-accent-soft,
+   text-pos, rounded-card, shadow-card, …
+   ============================================================ */
+@theme inline {
+  --color-bg:           var(--bg);
+  --color-surface:      var(--surface);
+  --color-surface-2:    var(--surface-2);
+  --color-surface-3:    var(--surface-3);
+  --color-line:         var(--line);
+  --color-line-strong:  var(--line-strong);
+
+  --color-ink:          var(--text);
+  --color-muted:        var(--muted);
+  --color-faint:        var(--faint);
+
+  --color-accent:       var(--accent);
+  --color-accent-ink:   var(--accent-ink);
+  --color-accent-soft:  var(--accent-soft);
+
+  --color-pos:          var(--pos);
+  --color-pos-soft:     var(--pos-soft);
+  --color-neg:          var(--neg);
+  --color-neg-soft:     var(--neg-soft);
+  --color-warn:         var(--warn);
+  --color-warn-soft:    var(--warn-soft);
+
+  --radius-sm:    var(--r-sm);
+  --radius-md:    var(--r-md);
+  --radius-card:  var(--r-lg);
+  --radius-pill:  var(--r-pill);
+
+  --shadow-card:  var(--shadow-sm);
+  --shadow-pop:   var(--shadow-md);
+  --shadow-modal: var(--shadow-lg);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* riduce il ritardo di 300ms sul tap senza disabilitare lo zoom */
+  touch-action: manipulation;
 }
 
-/* Utility additions for dark mode inputs if needed */
-.dark input, .dark select, .dark textarea {
-  color-scheme: dark;
+/* Il focus è SEMPRE visibile. Regola globale: nessun componente
+   deve fare focus:outline-none senza fornire un sostituto. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+.dark :focus-visible { outline-color: var(--accent); }
+
+::selection { background: var(--accent-soft); color: var(--text); }
+
+.dark input,
+.dark select,
+.dark textarea { color-scheme: dark; }
+
+/* numeri allineati in colonna: importi, percentuali, date */
+.tnum { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+/* contenitore standard delle pagine */
+.page { width: 100%; max-width: 1200px; margin-inline: auto; }
+
+/* barre di scorrimento discrete */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* nasconde la scrollbar dove serve solo lo swipe orizzontale */
+.no-bar { scrollbar-width: none; }
+.no-bar::-webkit-scrollbar { display: none; }
+
+/* ============================================================
+   Semplice / Avanzata
+   Cambia QUANTO si vede, mai DOVE si trova: stesso markup, stesse
+   posizioni, stessi nomi. Un blocco marcato .adv-only sparisce in
+   modalità Semplice, uno .simple-only in Avanzata. Nessun ramo di
+   codice duplicato e nessuna pagina che cambia forma.
+   Senza l'attributo (primo caricamento, JS disattivato) non si
+   nasconde niente: si vede tutto, che è lo stato meno sorprendente.
+   ============================================================ */
+[data-mode="simple"] .adv-only { display: none !important; }
+[data-mode="advanced"] .simple-only { display: none !important; }
+
+/* Colonna laterale fatta solo di blocchi .adv-only: in Semplice resterebbe
+   una colonna vuota che stringe la principale. La si toglie, e PageBody (flex)
+   lascia tutto lo spazio alla principale. */
+[data-mode="simple"] .page-side:not(:has(> :not(.adv-only))) { display: none; }
+
+/* ============================================================
+   Motion — rispetta le preferenze di sistema
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes cfp-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cfp-pop-in  { from { opacity: 0; transform: scale(.97) } to { opacity: 1; transform: none } }
+@keyframes cfp-slide-up{ from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes cfp-shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+
+.anim-fade  { animation: cfp-fade-in  .18s ease-out both }
+.anim-pop   { animation: cfp-pop-in   .18s ease-out both }
+.anim-up    { animation: cfp-slide-up .22s ease-out both }
+
+/* scheletri di caricamento: stessa forma del contenuto, niente CLS */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 25%, var(--line) 50%, var(--surface-3) 75%);
+  background-size: 200% 100%;
+  animation: cfp-shimmer 1.4s linear infinite;
+  border-radius: var(--r-sm);
+}
+
+/* ============================================================
+   Campi nativi: coerenti con i token in entrambi i temi
+   ============================================================ */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .6 }
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .5 }
+
+/* Safari: toglie l'aspetto nativo agli input dentro i nostri contenitori.
+   `color: inherit` vale SOLO per i campi: sui pulsanti spegneva il colore
+   dichiarato dal variant (text-accent-ink, text-white). Questa regola sta
+   fuori da ogni @layer, quindi vince sulle utility di Tailwind a prescindere
+   dalla specificità: il testo dei pulsanti primari diventava scuro su blu in
+   tema chiaro, illeggibile.
+   Dentro @layer base, non fuori: fuori da ogni layer anche `font: inherit`
+   vinceva sulle utility, e ogni text-* / font-* scritto su un campo o su un
+   pulsante veniva ignorato (l'importo di «Aggiungi una spesa», dichiarato a
+   46px extrabold, usciva a 16px normale). */
+@layer base {
+  input, select, textarea, button { font: inherit }
+  input, select, textarea { color: inherit }
 }

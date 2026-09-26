@@ -2,65 +2,59 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PlusCircle, List, PieChart, BarChart3, Bell } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import { useScope } from "@/context/ScopeContext";
+import { Plus } from "lucide-react";
+import { BOTTOM_NAV, isNavActive } from "./nav";
+import { cn } from "@/lib/utils";
 
-const navItems = [
-  { href: "/spese/nuova", icon: PlusCircle, label: "Nuova" },
-  { href: "/spese", icon: List, label: "Storico" },
-  { href: "/analisi", icon: PieChart, label: "Analisi" },
-  { href: "/report", icon: BarChart3, label: "Report" },
-  { href: "/promemoria", icon: Bell, label: "Promemoria" },
-];
-
+/**
+ * Quattro destinazioni con icona E testo (icon-only danneggia la
+ * scopribilità) più il pulsante centrale: aggiungere una spesa è
+ * un'azione, non una destinazione, quindi non è una tab.
+ * Target minimo 48px, safe-area rispettata.
+ */
 export default function BottomNav() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const { scope } = useScope();
+  const [left, right] = [BOTTOM_NAV.slice(0, 2), BOTTOM_NAV.slice(2)];
 
-  const isAuthPage =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/reset-password";
+  // «Aggiungi una spesa» ha già la sua barra «Salva» in fondo e la freccia
+  // indietro: qui la barra copriva «Salva» con il «+» proprio al centro.
+  if (pathname?.startsWith("/spese/nuova")) return null;
 
-  if (isAuthPage || !user) return null;
-
-  const activeColor =
-    scope === "C"
-      ? "text-blue-600 dark:text-blue-400"
-      : "text-indigo-600 dark:text-indigo-400";
-  const inactiveColor = "text-gray-400 dark:text-gray-500";
-
-  function isActive(item: (typeof navItems)[number]) {
-    if (item.href === "/spese")
-      return pathname.startsWith("/spese") && !pathname.startsWith("/spese/nuova");
-    return pathname.startsWith(item.href);
-  }
+  const item = (href: string, label: string, Icon: React.ElementType) => {
+    const active = isNavActive(href, pathname);
+    return (
+      <Link
+        key={href}
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "flex min-h-13 min-w-16 flex-col items-center justify-center gap-0.5 rounded-md px-2 py-1.5 text-[10.5px] font-semibold transition-colors",
+          active ? "text-accent" : "text-faint hover:text-ink"
+        )}
+      >
+        <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.3 : 1.85} aria-hidden />
+        <span>{label}</span>
+      </Link>
+    );
+  };
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 flex items-center"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      aria-label="Navigazione principale"
+      className="fixed inset-x-0 bottom-0 z-50 flex items-start justify-around border-t border-line bg-surface/92 px-2 pt-2 backdrop-blur-xl lg:hidden"
+      style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
     >
-      <div className="w-full max-w-lg mx-auto flex items-center justify-around px-2">
-        {navItems.map(({ href, icon: Icon, label, ...item }) => {
-          const active = isActive({ href, icon: Icon, label, ...item });
-          return (
-            <Link
-              key={href}
-              href={href}
-              title={label}
-              aria-label={label}
-              className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                active ? activeColor : inactiveColor
-              }`}
-            >
-              <Icon className="w-6 h-6" strokeWidth={active ? 2.5 : 1.75} />
-            </Link>
-          );
-        })}
-      </div>
+      {left.map((n) => item(n.href, n.label, n.icon))}
+
+      <Link
+        href="/spese/nuova"
+        aria-label="Aggiungi una spesa"
+        className="-mt-5 grid h-14 w-14 shrink-0 place-items-center rounded-full bg-accent text-accent-ink shadow-pop transition-transform active:scale-95"
+      >
+        <Plus className="h-6 w-6" strokeWidth={2.4} aria-hidden />
+      </Link>
+
+      {right.map((n) => item(n.href, n.label, n.icon))}
     </nav>
   );
 }

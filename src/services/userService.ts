@@ -14,6 +14,11 @@ export interface UserSettings {
   notification_time: string;
   recurring_notifications_enabled: boolean;
   dark_mode: boolean;
+  /** Modalità Semplice/Avanzata legata all'account.
+   *  null = non ha ancora scelto: vale MODE_DEFAULT dell'app.
+   *  Il tipo sta qui e non in ModeContext per non tirare React dentro
+   *  un service; combacia con ViewMode. */
+  view_mode: "simple" | "advanced" | null;
   del_confirm: boolean;
   show_shared_expenses: boolean; // Not relevant for this web app structure effectively, but kept for compatibility
   show_personal_expenses: boolean; // Not relevant for this web app structure effectively, but kept for compatibility
@@ -75,7 +80,7 @@ export const userService = {
 
     const { data, error } = await supabase
       .from('users_group')
-      .select('notifications_enabled, notification_time, recurring_notifications_enabled, dark_mode, del_confirm, show_shared_expenses, show_personal_expenses, custom_period_active, custom_period_start_day')
+      .select('notifications_enabled, notification_time, recurring_notifications_enabled, dark_mode, view_mode, del_confirm, show_shared_expenses, show_personal_expenses, custom_period_active, custom_period_start_day')
       .eq('user_id', user.id)
       .single();
 
@@ -87,6 +92,7 @@ export const userService = {
         notification_time: '19:30',
         recurring_notifications_enabled: false,
         dark_mode: false,
+        view_mode: null,
         del_confirm: true,
         show_shared_expenses: true,
         show_personal_expenses: true,
@@ -101,6 +107,7 @@ export const userService = {
         notification_time: data.notification_time ?? '19:30',
         recurring_notifications_enabled: data.recurring_notifications_enabled ?? false,
         dark_mode: data.dark_mode ?? false,
+        view_mode: data.view_mode ?? null,
         del_confirm: data.del_confirm ?? true,
         show_shared_expenses: data.show_shared_expenses ?? true,
         show_personal_expenses: data.show_personal_expenses ?? true,

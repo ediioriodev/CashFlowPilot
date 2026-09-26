@@ -10,6 +10,10 @@ export interface Spesa {
   note_spese?: string;
   data_spesa: string; // ISO date string
   tipo_spesa?: string; // e.g. 'C'
+  /** Chi ha anticipato di tasca propria. null/undefined = fondo comune del gruppo. */
+  paid_by?: string | null;
+  /** Percorso dello scontrino nel bucket privato "receipts". */
+  receipt_path?: string | null;
   tipo_transazione: ExpenseType;
   ricorrente: boolean;
   confermata: boolean;

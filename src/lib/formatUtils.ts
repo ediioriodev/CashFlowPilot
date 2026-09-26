@@ -2,7 +2,10 @@ export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('it-IT', {
     style: 'currency',
     currency: 'EUR',
-  }).format(amount);
+    // it-IT non raggruppa sotto 10.000 («1000,00 €»): i soldi si leggono meglio con il punto
+    useGrouping: 'always',
+    // -0,00 € non esiste: un residuo sotto il centesimo è zero
+  }).format(Math.abs(amount) < 0.005 ? 0 : amount);
 };
 
 export const formatDate = (dateString: string) => {

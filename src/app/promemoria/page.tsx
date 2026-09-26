@@ -1,24 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Plus, Check, Pencil, Trash2, Euro, ChevronDown, ChevronUp, Users, User } from "lucide-react";
+import { Bell, Check, ChevronDown, ChevronUp, Pencil, Plus, Trash2, User, Users } from "lucide-react";
 import { toast } from "sonner";
+
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PageHeader, { PageBody } from "@/components/layout/PageHeader";
 import ReminderModal from "@/components/reminders/ReminderModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { Button, Card, EmptyState, IconButton, Pill, Skeleton } from "@/components/ui/kit";
 import { reminderService } from "@/services/reminderService";
+import { formatCurrency } from "@/lib/formatUtils";
 import { useAuth } from "@/context/AuthContext";
 import type { Reminder, ReminderFormData } from "@/types/reminders";
 import { ALERT_OFFSET_LABELS } from "@/types/reminders";
 import { formatDateLabel } from "@/lib/dateUtils";
 
-function formatTime(t: string) {
-  return t.slice(0, 5); // "HH:MM"
-}
+const formatTime = (t: string) => t.slice(0, 5);
 
 function isUpcoming(r: Reminder) {
-  const dt = new Date(`${r.reminder_date}T${r.reminder_time}`);
-  return dt >= new Date() && !r.completed;
+  return new Date(`${r.reminder_date}T${r.reminder_time}`) >= new Date() && !r.completed;
 }
 
 export default function PromemoriaPage() {
@@ -28,19 +29,14 @@ export default function PromemoriaPage() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
-
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-
-  // Delete confirm state
+  const [editing, setEditing] = useState<Reminder | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const data = await reminderService.getReminders();
-      setReminders(data);
+      setReminders(await reminderService.getReminders());
     } finally {
       setLoading(false);
     }
@@ -51,8 +47,8 @@ export default function PromemoriaPage() {
   }, []);
 
   const handleSave = async (data: ReminderFormData) => {
-    if (editingReminder) {
-      await reminderService.updateReminder(editingReminder.id, data);
+    if (editing) {
+      await reminderService.updateReminder(editing.id, data);
       toast.success("Promemoria aggiornato");
     } else {
       await reminderService.createReminder(data);
@@ -61,18 +57,20 @@ export default function PromemoriaPage() {
     await load();
   };
 
-  const handleComplete = async (r: Reminder) => {
+  const toggleComplete = async (r: Reminder) => {
     try {
       if (r.completed) {
         await reminderService.uncompleteReminder(r.id);
         toast.success("Promemoria riaperto");
       } else {
         await reminderService.completeReminder(r.id);
-        toast.success("Promemoria completato");
+        toast.success("Promemoria completato", {
+          action: { label: "Annulla", onClick: () => toggleComplete({ ...r, completed: true }) },
+        });
       }
       await load();
     } catch {
-      toast.error("Errore aggiornamento");
+      toast.error("Aggiornamento non riuscito");
     }
   };
 
@@ -84,218 +82,202 @@ export default function PromemoriaPage() {
       setDeleteTarget(null);
       await load();
     } catch {
-      toast.error("Errore eliminazione");
+      toast.error("Eliminazione non riuscita");
     }
   };
 
+  const deleteNow = async (r: Reminder) => {
+    await reminderService.deleteReminder(r.id);
+    toast.success("Promemoria eliminato");
+    await load();
+  };
+
   const upcoming = reminders.filter(isUpcoming);
-  const completed = reminders.filter((r) => !isUpcoming(r));
+  const past = reminders.filter((r) => !isUpcoming(r));
+
+  const openNew = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-24">
-        <main className="max-w-lg mx-auto mt-4 px-4 space-y-4">
+      <PageHeader
+        title="Promemoria"
+        subtitle={loading ? undefined : `${upcoming.length} in arrivo`}
+        actions={
+          <Button size="sm" variant="primary" icon={Plus} onClick={openNew}>
+            Nuovo
+          </Button>
+        }
+      />
 
-          {/* Header row */}
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Promemoria</h1>
-            <button
-              onClick={() => { setEditingReminder(null); setModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Nuovo
-            </button>
-          </div>
+      <PageBody
+        main={
+          <>
+            <section aria-labelledby="prossimi">
+              <h2 id="prossimi" className="mb-2 text-xs font-bold uppercase tracking-[0.07em] text-faint">
+                In arrivo
+              </h2>
 
-          {/* Upcoming */}
-          <section>
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
-              Prossimi ({upcoming.length})
-            </h2>
-
-            {loading ? (
-              <div className="text-center py-8 text-gray-400 dark:text-gray-600">Caricamento...</div>
-            ) : upcoming.length === 0 ? (
-              <div className="text-center py-10">
-                <Bell className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-                <p className="text-gray-400 dark:text-gray-600 text-sm">Nessun promemoria in arrivo</p>
-                <button
-                  onClick={() => { setEditingReminder(null); setModalOpen(true); }}
-                  className="mt-4 text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline"
-                >
-                  Crea il primo promemoria
-                </button>
-              </div>
-            ) : (
-              <ul className="space-y-3">
-                {upcoming.map((r) => (
-                  <ReminderCard
-                    key={r.id}
-                    reminder={r}
-                    onComplete={() => handleComplete(r)}
-                    onEdit={() => { setEditingReminder(r); setModalOpen(true); }}
-                    onDelete={() => setDeleteTarget(r)}
-                    delConfirm={settings?.del_confirm ?? true}
-                    onDeleteDirect={settings?.del_confirm ? undefined : async () => {
-                      await reminderService.deleteReminder(r.id);
-                      toast.success("Promemoria eliminato");
-                      await load();
-                    }}
+              {loading ? (
+                <div className="flex flex-col gap-3">
+                  {[0, 1].map((i) => (
+                    <Skeleton key={i} className="h-24 w-full rounded-card" />
+                  ))}
+                </div>
+              ) : upcoming.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    icon={Bell}
+                    title="Nessun promemoria in arrivo"
+                    body="Usali per bollette, scadenze e rinnovi: ti avvisiamo prima che sia tardi."
+                    action={
+                      <Button variant="primary" icon={Plus} onClick={openNew}>
+                        Crea il primo
+                      </Button>
+                    }
                   />
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {/* Completed (collapsible) */}
-          {!loading && completed.length > 0 && (
-            <section>
-              <button
-                onClick={() => setShowCompleted((v) => !v)}
-                className="flex items-center gap-2 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 w-full text-left py-1"
-              >
-                {showCompleted ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Completati / Scaduti ({completed.length})
-              </button>
-
-              {showCompleted && (
-                <ul className="space-y-3">
-                  {completed.map((r) => (
+                </Card>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {upcoming.map((r) => (
                     <ReminderCard
                       key={r.id}
                       reminder={r}
-                      onComplete={() => handleComplete(r)}
-                      onEdit={() => { setEditingReminder(r); setModalOpen(true); }}
-                      onDelete={() => setDeleteTarget(r)}
-                      delConfirm={settings?.del_confirm ?? true}
-                      onDeleteDirect={settings?.del_confirm ? undefined : async () => {
-                        await reminderService.deleteReminder(r.id);
-                        toast.success("Promemoria eliminato");
-                        await load();
+                      onComplete={() => toggleComplete(r)}
+                      onEdit={() => {
+                        setEditing(r);
+                        setModalOpen(true);
                       }}
-                      dimmed
+                      onDelete={() => (settings?.del_confirm ?? true ? setDeleteTarget(r) : deleteNow(r))}
                     />
                   ))}
                 </ul>
               )}
             </section>
-          )}
 
-        </main>
-      </div>
+            {!loading && past.length > 0 && (
+              <section aria-labelledby="passati">
+                <button
+                  type="button"
+                  onClick={() => setShowCompleted((v) => !v)}
+                  aria-expanded={showCompleted}
+                  className="mb-2 flex min-h-11 w-full items-center gap-2 text-xs font-bold uppercase tracking-[0.07em] text-faint"
+                >
+                  {showCompleted ? <ChevronUp className="h-4 w-4" aria-hidden /> : <ChevronDown className="h-4 w-4" aria-hidden />}
+                  <span id="passati">Completati e scaduti ({past.length})</span>
+                </button>
 
-      {/* Reminder Modal */}
+                {showCompleted && (
+                  <ul className="anim-up flex flex-col gap-3">
+                    {past.map((r) => (
+                      <ReminderCard
+                        key={r.id}
+                        reminder={r}
+                        dimmed
+                        onComplete={() => toggleComplete(r)}
+                        onEdit={() => {
+                          setEditing(r);
+                          setModalOpen(true);
+                        }}
+                        onDelete={() => (settings?.del_confirm ?? true ? setDeleteTarget(r) : deleteNow(r))}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+          </>
+        }
+      />
+
       <ReminderModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={() => { }}
+        onSuccess={() => {}}
         onSave={handleSave}
-        reminder={editingReminder}
+        reminder={editing}
         groupId={groupId}
       />
 
-      {/* Delete Confirm */}
       <ConfirmModal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Elimina promemoria"
-        message={`Eliminare "${deleteTarget?.title}"? L'operazione non è reversibile.`}
+        title="Eliminare il promemoria?"
+        message={deleteTarget ? `"${deleteTarget.title}" verrà rimosso. L'operazione non è reversibile.` : ""}
         confirmText="Elimina"
-        cancelText="Annulla"
         isDestructive
       />
     </ProtectedRoute>
   );
 }
 
-interface ReminderCardProps {
+function ReminderCard({
+  reminder: r,
+  onComplete,
+  onEdit,
+  onDelete,
+  dimmed,
+}: {
   reminder: Reminder;
   onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  delConfirm: boolean;
-  onDeleteDirect?: () => Promise<void>;
   dimmed?: boolean;
-}
-
-function ReminderCard({ reminder: r, onComplete, onEdit, onDelete, delConfirm, onDeleteDirect, dimmed }: ReminderCardProps) {
-  const alertLabels = r.alerts
+}) {
+  const alerts = r.alerts
     .map((a) => ALERT_OFFSET_LABELS[a as keyof typeof ALERT_OFFSET_LABELS] ?? `${a} min prima`)
-    .join(', ');
+    .join(", ");
 
   return (
-    <li className={`bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm p-4 transition-opacity ${dimmed ? 'opacity-60' : ''}`}>
-      <div className="flex items-start gap-3">
+    <li>
+      <Card as="article" className={`p-4 ${dimmed ? "opacity-70" : ""}`}>
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            onClick={onComplete}
+            aria-pressed={r.completed}
+            aria-label={r.completed ? `Riapri ${r.title}` : `Segna ${r.title} come completato`}
+            className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border-2 transition-colors ${
+              r.completed ? "border-pos bg-pos text-white" : "border-line-strong hover:border-pos"
+            }`}
+          >
+            {r.completed && <Check className="h-4 w-4" aria-hidden />}
+          </button>
 
-        {/* Complete toggle */}
-        <button
-          onClick={onComplete}
-          title={r.completed ? 'Riapri' : 'Segna come completato'}
-          className={`mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-            r.completed
-              ? 'bg-green-500 border-green-500 text-white'
-              : 'border-gray-300 dark:border-gray-600 hover:border-green-400'
-          }`}
-        >
-          {r.completed && <Check className="w-3.5 h-3.5" />}
-        </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className={`text-sm font-semibold ${r.completed ? "text-faint line-through" : ""}`}>{r.title}</h3>
+              <Pill tone={r.is_personal ? "neutral" : "accent"} icon={r.is_personal ? User : Users}>
+                {r.is_personal ? "Personale" : "Gruppo"}
+              </Pill>
+            </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`font-semibold text-gray-800 dark:text-gray-100 ${r.completed ? 'line-through text-gray-400 dark:text-gray-600' : ''}`}>
-              {r.title}
-            </span>
-            {/* Scope badge */}
-            <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${
-              r.is_personal
-                ? 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400'
-                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
-            }`}>
-              {r.is_personal ? <User className="w-3 h-3" /> : <Users className="w-3 h-3" />}
-              {r.is_personal ? 'Personale' : 'Gruppo'}
-            </span>
-          </div>
-
-          <div className="mt-1 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
-            <span>{formatDateLabel(r.reminder_date)} · {formatTime(r.reminder_time)}</span>
-            {r.amount != null && (
-              <span className="flex items-center gap-0.5 font-medium text-gray-700 dark:text-gray-300">
-                <Euro className="w-3.5 h-3.5" />
-                {r.amount.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className="mt-1 flex flex-wrap items-center gap-3 text-[13px] text-muted">
+              <span className="tnum">
+                {formatDateLabel(r.reminder_date)} · {formatTime(r.reminder_time)}
               </span>
-            )}
+              {r.amount != null && (
+                <span className="tnum font-semibold text-ink">{formatCurrency(Number(r.amount))}</span>
+              )}
+            </p>
+
+            {r.note && <p className="mt-1 line-clamp-2 text-xs text-faint">{r.note}</p>}
+
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-faint">
+              <Bell className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {alerts}
+            </p>
           </div>
 
-          {r.note && (
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500 line-clamp-2">{r.note}</p>
-          )}
-
-          <p className="mt-1.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-            <Bell className="w-3.5 h-3.5" />
-            {alertLabels}
-          </p>
+          <div className="flex shrink-0">
+            <IconButton label={`Modifica ${r.title}`} icon={Pencil} onClick={onEdit} className="h-10 w-10" />
+            <IconButton label={`Elimina ${r.title}`} icon={Trash2} onClick={onDelete} className="h-10 w-10 hover:text-neg" />
+          </div>
         </div>
-
-        {/* Actions */}
-        <div className="flex gap-1 shrink-0">
-          <button
-            onClick={onEdit}
-            title="Modifica"
-            className="p-2 rounded-lg text-gray-400 dark:text-gray-600 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            onClick={delConfirm ? onDelete : onDeleteDirect}
-            title="Elimina"
-            className="p-2 rounded-lg text-gray-400 dark:text-gray-600 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+      </Card>
     </li>
   );
 }

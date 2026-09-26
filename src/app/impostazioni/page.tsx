@@ -1,58 +1,56 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import { Bell, BellOff, CalendarRange, Clock, Moon, Wallet } from "lucide-react";
+import { toast } from "sonner";
+
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PageHeader, { PageBody } from "@/components/layout/PageHeader";
+import { Button, Card, CardHeader, Skeleton, Toggle, inputClass } from "@/components/ui/kit";
 import { UserSettings } from "@/services/userService";
 import { notificationService } from "@/services/notificationService";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useScope } from "@/context/ScopeContext";
-import { Moon, Wallet, Receipt, Bell, BellOff, Clock } from "lucide-react";
-import clsx from "clsx";
-import { toast } from "sonner";
-import { useEffect, useState, useCallback } from "react";
 
 export default function ImpostazioniPage() {
   const { settings, updateSettings, loading } = useAuth();
   const { toggleTheme, isDarkMode } = useTheme();
   const { refreshScope } = useScope();
 
-  const [notifPermission, setNotifPermission] = useState<string>('default');
+  const [notifPermission, setNotifPermission] = useState<string>("default");
   const [isIOS, setIsIOS] = useState(false);
   const [isIOSInstalled, setIsIOSInstalled] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
 
   useEffect(() => {
     setNotifPermission(notificationService.getPermissionState());
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
       setIsIOS(ios);
-      setIsIOSInstalled((window.navigator as any).standalone === true);
+      setIsIOSInstalled((window.navigator as Navigator & { standalone?: boolean }).standalone === true);
     }
   }, []);
 
-  // Silently refresh push subscription if the browser lost it
-  // (e.g. after a PWA reinstall or browser update), but ONLY when the user
-  // has explicitly enabled notifications. Never re-enable if they turned it off.
+  // Se il browser ha perso la sottoscrizione push (reinstallazione PWA,
+  // aggiornamento) la ricreiamo in silenzio — ma solo se l'utente le voleva.
   const autoSubscribe = useCallback(async () => {
-    if (notifPermission !== 'granted' || !settings) return;
-    // Respect the user's explicit choice — don't re-enable if disabled.
+    if (notifPermission !== "granted" || !settings) return;
     if (!settings.notifications_enabled) return;
-    // Verify the browser still has a live PushSubscription.
-    // If not, the stored push_token is stale — resubscribe silently.
     try {
-      if (!('serviceWorker' in navigator)) return;
+      if (!("serviceWorker" in navigator)) return;
       const registration = await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
-      if (existing) return; // Live subscription present — nothing to do.
+      if (await registration.pushManager.getSubscription()) return;
     } catch {
       return;
     }
-    // Token was lost — silently resubscribe.
     const result = await notificationService.enableNotifications();
-    if (result.success) {
-      await updateSettings({ notifications_enabled: true });
-    }
+    if (result.success) await updateSettings({ notifications_enabled: true });
   }, [notifPermission, settings, updateSettings]);
+
+  useEffect(() => {
+    autoSubscribe();
+  }, [autoSubscribe]);
 
   const handleNotificationsToggle = async (enabled: boolean) => {
     if (isSubscribing) return;
@@ -62,270 +60,289 @@ export default function ImpostazioniPage() {
         const result = await notificationService.enableNotifications();
         if (result.success) {
           await updateSettings({ notifications_enabled: true });
-          setNotifPermission('granted');
-          toast.success('Notifiche push attivate');
+          setNotifPermission("granted");
+          toast.success("Notifiche push attivate");
         } else {
-          toast.error(result.error ?? 'Errore durante la registrazione push');
+          toast.error(result.error ?? "Registrazione push non riuscita");
           setNotifPermission(notificationService.getPermissionState());
         }
       } else {
         await notificationService.unsubscribe();
         await updateSettings({ notifications_enabled: false });
-        toast.success('Notifiche push disattivate');
+        toast.success("Notifiche push disattivate");
       }
     } catch (err) {
       console.error(err);
-      toast.error('Errore durante la gestione delle notifiche');
+      toast.error("Gestione delle notifiche non riuscita");
     } finally {
       setIsSubscribing(false);
     }
   };
 
-  useEffect(() => {
-    autoSubscribe();
-  }, [autoSubscribe]);
-
-  // Handle other settings updates normally
-  const handleUpdate = async (key: keyof UserSettings, value: any) => {
+  const handleUpdate = async <K extends keyof UserSettings>(key: K, value: UserSettings[K] | boolean) => {
     if (!settings) return;
-    
-    // Use dedicated theme toggle for dark mode
-    if (key === 'dark_mode') {
-        await toggleTheme();
-        return;
+
+    if (key === "dark_mode") {
+      await toggleTheme();
+      return;
     }
-    
-    // Validation for Portfolio Visibility
-    if ((key === 'show_personal_expenses' || key === 'show_shared_expenses') && value === false) {
-      const otherKey = key === 'show_personal_expenses' ? 'show_shared_expenses' : 'show_personal_expenses';
-      
-      if (!settings[otherKey]) {
-         toast.error("Devi mantenere visibile almeno un portafoglio.");
-         return; 
+
+    if ((key === "show_personal_expenses" || key === "show_shared_expenses") && value === false) {
+      const other = key === "show_personal_expenses" ? "show_shared_expenses" : "show_personal_expenses";
+      if (!settings[other]) {
+        toast.error("Devi tenere visibile almeno un portafoglio.");
+        return;
       }
     }
 
     try {
       await updateSettings({ [key]: value });
-      
-      // Refresh scope context if visibility changed
-      if (key === 'show_personal_expenses' || key === 'show_shared_expenses') {
-        await refreshScope();
-      }
+      if (key === "show_personal_expenses" || key === "show_shared_expenses") await refreshScope();
     } catch (error) {
       console.error(error);
-      toast.error("Errore durante l'aggiornamento delle impostazioni");
+      toast.error("Aggiornamento non riuscito");
     }
   };
 
-  if (loading || !settings) return <div className="text-center p-10">Caricamento...</div>;
+  if (loading || !settings) {
+    return (
+      <ProtectedRoute>
+        <PageHeader title="Impostazioni" />
+        <PageBody
+          main={
+            <>
+              <Skeleton className="h-36 w-full rounded-card" />
+              <Skeleton className="h-36 w-full rounded-card" />
+              <Skeleton className="h-52 w-full rounded-card" />
+            </>
+          }
+        />
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 pb-20 dark:bg-gray-950">
-        <main className="max-w-lg mx-auto mt-4 space-y-4 px-4">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Impostazioni</h1>
-            
-            {/* Wallet Visibility Section */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Portafogli</h2>
-                </div>
-                
-                <div className="p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-700 dark:text-gray-300">Portafoglio Personale</span>
-                        <Toggle 
-                            checked={settings.show_personal_expenses} 
-                            onChange={(v) => handleUpdate('show_personal_expenses', v)} 
-                        />
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-gray-700 dark:text-gray-300">Portafoglio Condiviso</span>
-                        <Toggle 
-                            checked={settings.show_shared_expenses} 
-                            onChange={(v) => handleUpdate('show_shared_expenses', v)} 
-                        />
-                    </div>
-                </div>
-            </div>
+      <PageHeader title="Impostazioni" subtitle="Portafogli, periodo, notifiche e tema" backHref="/altro" />
 
-          
+      <PageBody
+        main={
+          <>
+            {/* ---------- Portafogli ---------- */}
+            <Card className="p-4 lg:p-5">
+              <CardHeader
+                title={<SectionTitle icon={Wallet}>Portafogli</SectionTitle>}
+                hint="Quali portafogli puoi scegliere nel selettore (gruppo o solo tuo)."
+              />
+              <div className="flex flex-col">
+                <SettingRow
+                  label="Portafoglio personale"
+                  desc="Le tue spese, visibili solo a te."
+                  control={
+                    <Toggle
+                      checked={settings.show_personal_expenses}
+                      onChange={(v) => handleUpdate("show_personal_expenses", v)}
+                      label="Mostra il portafoglio personale"
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Portafoglio condiviso"
+                  desc="Le spese del gruppo familiare."
+                  control={
+                    <Toggle
+                      checked={settings.show_shared_expenses}
+                      onChange={(v) => handleUpdate("show_shared_expenses", v)}
+                      label="Mostra il portafoglio condiviso"
+                    />
+                  }
+                />
+              </div>
+            </Card>
 
-            {/* Periodo Fiscale */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                    <Receipt className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Periodo Fiscale</h2>
-                </div>
-                
-                <div className="p-4 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                           <span className="block text-gray-700 dark:text-gray-300">Periodo Personalizzato</span>
-                           <span className="text-xs text-gray-400 dark:text-gray-500">Attiva per cambiare il giorno di inizio del mese.</span>
-                        </div>
-                        <Toggle 
-                            checked={Boolean(settings.custom_period_active)} 
-                            onChange={(v) => handleUpdate('custom_period_active', v)} 
-                        />
-                    </div>
-                    
-                    {settings.custom_period_active && (
-                       <div className="flex items-center justify-between mt-4 pl-2 border-l-2 border-green-100 dark:border-green-900">
-                          <span className="text-sm text-gray-600 dark:text-gray-400">Giorno di Inizio Mese</span>
-                          <select
-                            value={settings.custom_period_start_day || 1}
-                            onChange={(e) => handleUpdate('custom_period_start_day', Number(e.target.value))}
-                            className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-sm focus:outline-green-500 text-gray-900 dark:text-gray-100"
-                          >
-                             {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                <option key={day} value={day}>{day}</option>
-                             ))}
-                          </select>
-                       </div>
-                    )}
-                </div>
-            </div>
+            {/* ---------- Periodo ---------- */}
+            <Card className="p-4 lg:p-5">
+              <CardHeader
+                title={<SectionTitle icon={CalendarRange}>Periodo</SectionTitle>}
+                hint="Vale per tutta l'app: Oggi, Movimenti, Analisi, Famiglia."
+              />
+              <div className="flex flex-col">
+                <SettingRow
+                  label="Periodo personalizzato"
+                  desc="Se il tuo mese non inizia il 1°, per esempio dopo lo stipendio."
+                  control={
+                    <Toggle
+                      checked={Boolean(settings.custom_period_active)}
+                      onChange={(v) => handleUpdate("custom_period_active", v)}
+                      label="Periodo personalizzato"
+                    />
+                  }
+                />
 
-            {/* Notifiche */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                    <Bell className="w-5 h-5 text-orange-500 dark:text-orange-400" />
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Notifiche Push</h2>
-                </div>
+                {settings.custom_period_active && (
+                  <div className="anim-up mt-3 flex items-center justify-between gap-3 rounded-md border-l-2 border-accent bg-surface-2 p-3.5">
+                    <label htmlFor="giorno-inizio" className="text-sm text-muted">
+                      Il mese inizia il giorno
+                    </label>
+                    <select
+                      id="giorno-inizio"
+                      value={settings.custom_period_start_day || 1}
+                      onChange={(e) => handleUpdate("custom_period_start_day", Number(e.target.value))}
+                      className={`${inputClass} w-auto min-h-11`}
+                    >
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                        <option key={day} value={day}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </Card>
 
-                <div className="p-4 space-y-3">
-                  {/* iOS not installed banner */}
-                  {isIOS && !isIOSInstalled && (
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-800 dark:text-amber-300">
-                      <BellOff className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>Su iOS le notifiche push funzionano solo se l&apos;app è installata. Usa <strong>Aggiungi alla schermata Home</strong> da Safari.</span>
-                    </div>
-                  )}
+            {/* ---------- Notifiche ---------- */}
+            <Card className="p-4 lg:p-5">
+              <CardHeader title={<SectionTitle icon={Bell}>Notifiche push</SectionTitle>} />
 
-                  {/* Denied banner */}
-                  {notifPermission === 'denied' && (
-                    <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-                      <BellOff className="w-4 h-4 mt-0.5 shrink-0" />
-                      <span>Il permesso notifiche è negato. Abilitalo nelle impostazioni del dispositivo.</span>
-                    </div>
-                  )}
+              <div className="flex flex-col gap-3">
+                {isIOS && !isIOSInstalled && (
+                  <Banner tone="warn">
+                    Su iOS le notifiche funzionano solo con l&apos;app installata. Da Safari usa{" "}
+                    <strong className="font-semibold">Aggiungi alla schermata Home</strong>.
+                  </Banner>
+                )}
 
-                  {/* Unsupported banner */}
-                  {notifPermission === 'unsupported' && (
-                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-500 dark:text-gray-400">
-                      Notifiche push non supportate su questo browser/dispositivo.
-                    </div>
-                  )}
+                {notifPermission === "denied" && (
+                  <Banner tone="neg">
+                    Il permesso è stato negato. Riattivalo dalle impostazioni del dispositivo, poi torna qui.
+                  </Banner>
+                )}
 
-                  {/* Default: permesso non ancora richiesto */}
-                  {notifPermission === 'default' && !(isIOS && !isIOSInstalled) && (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="block text-gray-700 dark:text-gray-300">Notifiche Push</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">Abilita per ricevere promemoria e avvisi.</span>
-                      </div>
-                      <button
+                {notifPermission === "unsupported" && (
+                  <Banner tone="neutral">Questo browser non supporta le notifiche push.</Banner>
+                )}
+
+                {notifPermission === "default" && !(isIOS && !isIOSInstalled) && (
+                  <SettingRow
+                    label="Attiva le notifiche"
+                    desc="Servono per promemoria e spese ricorrenti da confermare."
+                    control={
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        loading={isSubscribing}
                         onClick={() => handleNotificationsToggle(true)}
-                        disabled={isSubscribing}
-                        className="px-3 py-1.5 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {isSubscribing ? 'Attivazione...' : 'Abilita'}
-                      </button>
-                    </div>
-                  )}
+                        Abilita
+                      </Button>
+                    }
+                  />
+                )}
 
-                  {/* Granted: mostra controlli */}
-                  {notifPermission === 'granted' && (
-                    <div className="space-y-3">
-                      {/* Toggle principale notifiche push */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="block text-gray-700 dark:text-gray-300">Notifiche Push</span>
-                          <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi promemoria e avvisi sull&apos;app.</span>
-                        </div>
+                {notifPermission === "granted" && (
+                  <>
+                    <SettingRow
+                      label="Notifiche push"
+                      desc="Promemoria e avvisi sull'app."
+                      control={
                         <Toggle
                           checked={!!settings.notifications_enabled}
                           onChange={handleNotificationsToggle}
-                          disabled={isSubscribing}
+                          label="Notifiche push"
                         />
-                      </div>
+                      }
+                    />
 
-                      {/* Sezione spese ricorrenti — visibile solo se push attivo */}
-                      {settings.notifications_enabled && (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <span className="block text-gray-700 dark:text-gray-300">Spese Ricorrenti da Confermare</span>
-                              <span className="text-xs text-gray-400 dark:text-gray-500">Ricevi una notifica se hai spese ricorrenti in sospeso.</span>
-                            </div>
+                    {settings.notifications_enabled && (
+                      <>
+                        <SettingRow
+                          label="Ricorrenti da confermare"
+                          desc="Un avviso quando hai spese ricorrenti in sospeso."
+                          control={
                             <Toggle
                               checked={!!settings.recurring_notifications_enabled}
-                              onChange={(v) => handleUpdate('recurring_notifications_enabled', v)}
+                              onChange={(v) => handleUpdate("recurring_notifications_enabled", v)}
+                              label="Avviso spese ricorrenti"
+                            />
+                          }
+                        />
+
+                        {settings.recurring_notifications_enabled && (
+                          <div className="anim-up flex items-center justify-between gap-3 rounded-md border-l-2 border-accent bg-surface-2 p-3.5">
+                            <label htmlFor="orario" className="flex items-center gap-2 text-sm text-muted">
+                              <Clock className="h-4 w-4" aria-hidden />
+                              Orario dell&apos;avviso
+                            </label>
+                            <input
+                              id="orario"
+                              type="time"
+                              value={(settings.notification_time ?? "19:30").substring(0, 5)}
+                              onChange={(e) => handleUpdate("notification_time", e.target.value)}
+                              className={`${inputClass} w-auto min-h-11`}
                             />
                           </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </Card>
 
-                          {settings.recurring_notifications_enabled && (
-                            <div className="flex items-center justify-between pl-2 border-l-2 border-orange-100 dark:border-orange-900">
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-orange-500 dark:text-orange-400" />
-                                <span className="text-sm text-gray-600 dark:text-gray-400">Orario notifica</span>
-                              </div>
-                              <input
-                                type="time"
-                                value={(settings.notification_time ?? '19:30').substring(0, 5)}
-                                onChange={(e) => handleUpdate('notification_time', e.target.value)}
-                                className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-orange-400 text-gray-900 dark:text-gray-100"
-                              />
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-            </div>
-
-             {/* Dark Mode */}
-             <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-                    <Moon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    <h2 className="font-semibold text-gray-800 dark:text-gray-200">Aspetto</h2>
-                </div>
-                <div className="p-4 flex items-center justify-between">
-                    <span className="text-gray-700 dark:text-gray-300">Tema Scuro</span>
-                    <Toggle 
-                        checked={isDarkMode} 
-                        onChange={() => toggleTheme()} 
-                    />
-                </div>
-            </div>
-
-        </main>
-      </div>
+            {/* ---------- Aspetto ---------- */}
+            <Card className="p-4 lg:p-5">
+              <CardHeader title={<SectionTitle icon={Moon}>Aspetto</SectionTitle>} />
+              <SettingRow
+                label="Tema scuro"
+                desc="Si salva sul tuo profilo e ti segue su ogni dispositivo."
+                control={<Toggle checked={isDarkMode} onChange={() => toggleTheme()} label="Tema scuro" />}
+              />
+            </Card>
+          </>
+        }
+      />
     </ProtectedRoute>
   );
 }
 
-function Toggle({ checked, onChange, disabled = false }: { checked: boolean, onChange: (v: boolean) => void, disabled?: boolean }) {
-    return (
-        <button 
-            disabled={disabled}
-            onClick={() => onChange(!checked)}
-            className={clsx(
-                "w-12 h-6 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none",
-                checked ? "bg-blue-600 dark:bg-blue-500" : "bg-gray-300 dark:bg-gray-600",
-                disabled && "opacity-50 cursor-not-allowed"
-            )}
-        >
-            <div 
-                className={clsx(
-                    "w-4 h-4 rounded-full bg-white absolute top-1 transition-transform duration-200 ease-in-out",
-                    checked ? "translate-x-7" : "translate-x-1"
-                )}
-            />
-        </button>
-    );
+function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-accent" aria-hidden />
+      {children}
+    </span>
+  );
+}
+
+function SettingRow({
+  label,
+  desc,
+  control,
+}: {
+  label: string;
+  desc?: string;
+  control: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-14 items-center justify-between gap-4 border-line py-3 [&+&]:border-t">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{label}</p>
+        {desc && <p className="mt-0.5 text-xs leading-relaxed text-faint">{desc}</p>}
+      </div>
+      <div className="shrink-0">{control}</div>
+    </div>
+  );
+}
+
+function Banner({ tone, children }: { tone: "warn" | "neg" | "neutral"; children: React.ReactNode }) {
+  const styles = {
+    warn: "bg-warn-soft text-warn",
+    neg: "bg-neg-soft text-neg",
+    neutral: "bg-surface-3 text-muted",
+  }[tone];
+  return (
+    <div className={`flex items-start gap-2.5 rounded-md p-3.5 text-[13px] leading-relaxed ${styles}`}>
+      <BellOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </div>
+  );
 }

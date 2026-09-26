@@ -39,3 +39,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ma il template senza segreti va versionato
+!.env.example
+
+# dossier: temporanei e backup (le emissioni *_v*.html vanno versionate)
+docs/dossier/*.bak
+docs/dossier/*.tmp
+docs/roadmap/*.bak
+docs/roadmap/*.tmp
+
+# MCP di progetto: contiene solo il project-ref (pubblico), ma il file
+# e' locale alla macchina e dipende da SUPABASE_ACCESS_TOKEN nell'ambiente
+.mcp.json

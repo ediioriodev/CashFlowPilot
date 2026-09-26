@@ -1,26 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Eye, EyeOff, ArrowLeft, Mail } from "lucide-react";
-import { translateAuthError } from "@/lib/formatUtils";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Eye, EyeOff, Mail, Wallet } from "lucide-react";
 
-type View = "login" | "forgot-password" | "forgot-password-sent";
+import { supabase } from "@/lib/supabaseClient";
+import { translateAuthError } from "@/lib/formatUtils";
+import { Button, Card, Field, IconButton, inputClass } from "@/components/ui/kit";
+
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+type View = "login" | "forgot" | "sent";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [view, setView] = useState<View>("login");
 
-  // Login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
-  // Forgot password
   const [resetEmail, setResetEmail] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
@@ -29,204 +31,174 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       router.refresh();
       router.push("/");
-    } catch (err: any) {
-      setError(translateAuthError(err.message) || "Errore durante il login.");
+    } catch (err) {
+      setError(translateAuthError(errorMessage(err)) || "Accesso non riuscito.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = async (e: React.FormEvent) => {
+  const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetLoading(true);
     setResetError(null);
-
     try {
       const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/reset-password`;
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, { redirectTo });
       if (error) throw error;
-      setView("forgot-password-sent");
-    } catch (err: any) {
-      setResetError(translateAuthError(err.message) || "Errore durante l'invio dell'email.");
+      setView("sent");
+    } catch (err) {
+      setResetError(translateAuthError(errorMessage(err)) || "Invio dell'email non riuscito.");
     } finally {
       setResetLoading(false);
     }
   };
 
-  // ─── Views ────────────────────────────────────────────────────────────────
-
-  const loginView = (
-    <>
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Cash Flow Pilot</h1>
-        <p className="text-gray-500 dark:text-gray-400">Accedi per gestire le tue spese</p>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleLogin} className="space-y-4">
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white dark:bg-gray-900"
-            placeholder="nome@esempio.com"
-          />
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Password
-            </label>
-            <button
-              type="button"
-              onClick={() => { setResetEmail(email); setResetError(null); setView("forgot-password"); }}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-            >
-              Password dimenticata?
-            </button>
-          </div>
-          <div className="relative">
-            <input
-              id="password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white dark:bg-gray-900 pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex justify-center items-center"
-        >
-          {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Accedi"}
-        </button>
-      </form>
-
-      <div className="text-center text-sm text-gray-500 dark:text-gray-400">
-        Non hai un account?{" "}
-        <Link href="/register" className="text-blue-600 dark:text-blue-400 hover:underline">
-          Registrati
-        </Link>
-      </div>
-    </>
-  );
-
-  const forgotPasswordView = (
-    <>
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Recupera password</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-          Inserisci la tua email e ti invieremo un link per reimpostare la password.
-        </p>
-      </div>
-
-      {resetError && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
-          {resetError}
-        </div>
-      )}
-
-      <form onSubmit={handleForgotPassword} className="space-y-4">
-        <div>
-          <label htmlFor="reset-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Email
-          </label>
-          <input
-            id="reset-email"
-            name="reset-email"
-            type="email"
-            required
-            autoFocus
-            value={resetEmail}
-            onChange={(e) => setResetEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white dark:bg-gray-900"
-            placeholder="nome@esempio.com"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={resetLoading}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex justify-center items-center gap-2"
-        >
-          {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Invia link di recupero"}
-        </button>
-      </form>
-
-      <button
-        type="button"
-        onClick={() => setView("login")}
-        className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mx-auto"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Torna al login
-      </button>
-    </>
-  );
-
-  const forgotPasswordSentView = (
-    <>
-      <div className="flex flex-col items-center gap-3 text-center">
-        <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full">
-          <Mail className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Email inviata!</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          Abbiamo inviato un link di recupero a{" "}
-          <span className="font-medium text-gray-700 dark:text-gray-300">{resetEmail}</span>.
-          <br />Controlla la tua casella di posta (anche lo spam).
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setView("login")}
-        className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mx-auto"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Torna al login
-      </button>
-    </>
-  );
-
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 space-y-6">
-        {view === "login" && loginView}
-        {view === "forgot-password" && forgotPasswordView}
-        {view === "forgot-password-sent" && forgotPasswordSentView}
+    <main className="flex min-h-dvh items-center justify-center bg-bg p-4">
+      <div className="w-full max-w-md">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <span className="grid h-14 w-14 place-items-center rounded-card bg-accent text-accent-ink">
+            <Wallet className="h-7 w-7" aria-hidden />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Cash Flow Pilot</h1>
+            <p className="mt-1 text-sm text-muted">Sai sempre quanto puoi spendere davvero.</p>
+          </div>
+        </div>
+
+        <Card className="p-6">
+          {view === "login" && (
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              {error && (
+                <p role="alert" className="rounded-md bg-neg-soft p-3 text-sm font-medium text-neg">
+                  {error}
+                </p>
+              )}
+
+              <Field label="Email" htmlFor="email" required>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nome@esempio.com"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Password" htmlFor="password" required>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${inputClass} pr-12`}
+                  />
+                  <IconButton
+                    label={showPassword ? "Nascondi la password" : "Mostra la password"}
+                    icon={showPassword ? EyeOff : Eye}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-1 top-1/2 h-10 w-10 -translate-y-1/2"
+                  />
+                </div>
+              </Field>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setResetEmail(email);
+                  setResetError(null);
+                  setView("forgot");
+                }}
+                className="-mt-1 self-end px-1 py-2 text-xs font-semibold text-accent"
+              >
+                Password dimenticata?
+              </button>
+
+              <Button type="submit" variant="primary" size="lg" loading={loading} className="w-full">
+                Accedi
+              </Button>
+
+              <p className="text-center text-sm text-muted">
+                Non hai un account?{" "}
+                <Link href="/register" className="font-semibold text-accent">
+                  Registrati
+                </Link>
+              </p>
+            </form>
+          )}
+
+          {view === "forgot" && (
+            <form onSubmit={handleForgot} className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-lg font-bold">Recupera la password</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted">
+                  Ti mandiamo un link per impostarne una nuova.
+                </p>
+              </div>
+
+              {resetError && (
+                <p role="alert" className="rounded-md bg-neg-soft p-3 text-sm font-medium text-neg">
+                  {resetError}
+                </p>
+              )}
+
+              <Field label="Email" htmlFor="reset-email" required>
+                <input
+                  id="reset-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  required
+                  autoFocus
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  placeholder="nome@esempio.com"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Button type="submit" variant="primary" size="lg" loading={resetLoading} className="w-full">
+                Invia il link
+              </Button>
+
+              <Button type="button" variant="ghost" icon={ArrowLeft} onClick={() => setView("login")} className="mx-auto">
+                Torna all&apos;accesso
+              </Button>
+            </form>
+          )}
+
+          {view === "sent" && (
+            <div className="flex flex-col items-center gap-3 text-center">
+              <span className="grid h-14 w-14 place-items-center rounded-full bg-accent-soft text-accent">
+                <Mail className="h-6 w-6" aria-hidden />
+              </span>
+              <h2 className="text-lg font-bold">Email inviata</h2>
+              <p className="text-sm leading-relaxed text-muted">
+                Abbiamo mandato il link a <strong className="font-semibold text-ink">{resetEmail}</strong>. Controlla
+                anche la posta indesiderata.
+              </p>
+              <Button variant="ghost" icon={ArrowLeft} onClick={() => setView("login")} className="mt-2">
+                Torna all&apos;accesso
+              </Button>
+            </div>
+          )}
+        </Card>
       </div>
-    </div>
+    </main>
   );
 }

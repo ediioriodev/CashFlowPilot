@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tutte le dipendenze sono locali: la pagina si apre con doppio clic (file://),
+     senza server, senza npx, senza connessione. L'ordine conta: React, la
+     configurazione e i dati devono esistere prima che support.js avvii la vista.
+     Ogni <doc>.data.js si aggiunge a window.dossierDocs: un file assente non è un
+     errore, quel documento semplicemente non compare. Chi aggiunge uno
+     <script src="./…"> lo aggiunga qui: build.js inlina i tag di questo <head>. -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./dossier.config.js"></script>
+<script src="./manual.data.js"></script>
+<script src="./test.data.js"></script>
+<script src="./install.data.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #f4f2ee; }
+  body { color: #23211e; font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  [data-tema] {
+    --bg:#f4f2ee; --card:#fffefb; --ink:#23211e; --onink:#f6f4f0; --body:#4a463f;
+    --ink2:#6e6a62; --ink3:#8a857c; --ink4:#a9a39a;
+    --bd:#e4e0d8; --bd2:#ece8e0; --rule:#ddd8ce;
+    --chip:#e9e5dd; --tag:#efece5; --thead:#faf8f4; --track:#f7f5f1;
+  }
+  [data-tema="dark"] {
+    --bg:#15171a; --card:#1d2024; --ink:#eceef1; --onink:#15171a; --body:#c4c8ce;
+    --ink2:#a2a8b0; --ink3:#868d96; --ink4:#6d737b;
+    --bd:#2c3036; --bd2:#272b30; --rule:#2c3036;
+    --chip:#23272c; --tag:#272c32; --thead:#20242a; --track:#20242a;
+  }
+  a { color: #2f66b3; text-decoration: none; }
+  a:hover { color: #21508f; text-decoration: underline; }
+  [data-tema="dark"] a { color: #8fbcf0; }
+  [data-tema="dark"] a:hover { color: #c3dcf9; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    [data-noprint] { display: none !important; }
+    [data-tema], [data-tema="dark"] {
+      --bg:#ffffff; --card:#ffffff; --ink:#23211e; --onink:#f6f4f0; --body:#4a463f;
+      --ink2:#6e6a62; --ink3:#8a857c; --ink4:#a9a39a;
+      --bd:#e4e0d8; --bd2:#ece8e0; --rule:#ddd8ce;
+      --chip:#e9e5dd; --tag:#efece5; --thead:#faf8f4; --track:#f7f5f1;
+    }
+    body { background: #ffffff !important; }
+    section { break-before: page; page-break-before: always; break-inside: auto; }
+    section:first-of-type { break-before: auto; page-break-before: auto; }
+    [data-blocco] { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+</helmet>
+
+<div data-tema="{{ tema }}" style="background:var(--bg);color:var(--ink);min-height:100vh">
+<div style="max-width:1180px;margin:0 auto;padding:28px 24px 72px">
+
+  <header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid var(--rule)">
+    <div style="min-width:280px;flex:1 1 420px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+        <sc-if value="{{ haLogo }}" hint-placeholder-val="{{ true }}">
+          <span style="display:inline-flex;padding:{{ logoPad }};background:{{ logoBg }};border-radius:6px"><img src="{{ logoSrc }}" alt="{{ logoAlt }}" style="display:block;height:{{ logoAltezza }}px;width:auto" /></span>
+        </sc-if>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">{{ doc.titolo }}</span>
+        <sc-if value="{{ doc.riservato }}" hint-placeholder-val="{{ true }}">
+          <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ risBg }};color:{{ risFg }}">Interno</span>
+        </sc-if>
+      </div>
+      <h1 style="margin:0 0 4px;font-size:30px;font-weight:600;letter-spacing:-0.01em;line-height:1.15;text-wrap:pretty">{{ doc.progetto }}</h1>
+      <div style="font-size:14px;color:var(--ink2)">{{ doc.sottotitolo }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+      <div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center">
+        <button onClick="{{ toggleTema }}" title="Tema chiaro / scuro" style="cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--card);color:var(--ink2);border:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase">{{ temaLabel }}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end">
+        <sc-if value="{{ haVersioni }}" hint-placeholder-val="{{ true }}">
+          <label data-noprint="1" style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)">Emissione
+            <select value="{{ verSel }}" onChange="{{ cambiaVersione }}" style="cursor:pointer;padding:6px 9px;border-radius:7px;background:var(--card);color:var(--ink);border:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0;text-transform:none">
+              <sc-for list="{{ versioni }}" as="v" hint-placeholder-count="3">
+                <option value="{{ v.valore }}">{{ v.label }}</option>
+              </sc-for>
+            </select>
+          </label>
+        </sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3);text-align:right">{{ doc.versioneStr }}Agg. {{ doc.aggiornatoIlStr }}</div>
+      </div>
+    </div>
+  </header>
+
+  <sc-if value="{{ nonUltima }}">
+    <div style="margin:16px 0 0;padding:11px 16px;background:var(--card);border:1px solid var(--bd);border-left:3px solid #cf9531;border-radius:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--body)">Stai leggendo l'emissione del <strong>{{ versioneLabel }}</strong>: non è l'ultima ({{ ultimaLabel }}).</span>
+      <button data-noprint="1" onClick="{{ vaiUltima }}" style="cursor:pointer;padding:7px 13px;border-radius:7px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Vai all'ultima</button>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:18px 0 26px">
+    <nav data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.onClick }}" style="cursor:pointer;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }}</button>
+      </sc-for>
+    </nav>
+    <sc-if value="{{ mostraEsport }}" hint-placeholder-val="{{ true }}">
+      <div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)">Estrai “{{ doc.titolo }}”</span>
+        <button onClick="{{ esportaHtml }}" style="cursor:pointer;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Esporta HTML</button>
+        <button onClick="{{ esportaPdf }}" style="cursor:pointer;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Stampa / PDF</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ caricamento }}" hint-placeholder-val="{{ true }}">
+    <div style="margin:40px 0;padding:24px 26px;background:var(--card);border:1px solid var(--bd);border-left:3px solid #b4442e;border-radius:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4442e;margin-bottom:8px">Nessun documento caricato</div>
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.6">Nessun file <code>&lt;doc&gt;.data.js</code> è stato letto: devono stare nella stessa cartella di questa pagina e aggiungersi a <code>window.dossierDocs</code>.</p>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--body)">
+        <li>Sposta la pagina insieme a tutta la cartella <code>dossier/</code>: i file accanto le servono.</li>
+        <li>Ogni file dati inizia con <code>window.dossierDocs = window.dossierDocs || {};</code> — niente <code>export</code>.</li>
+        <li>Errore di sintassi nei dati? Apri con F12 → Console per il dettaglio.</li>
+      </ul>
+    </div>
+  </sc-if>
+
+  <div ref="{{ areaRef }}">
+
+  <sc-if value="{{ haDoc }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:30px;max-width:1000px">
+
+      <div data-blocco="1" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px">
+        <sc-for list="{{ doc.schede }}" as="s" hint-placeholder-count="4">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 16px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">{{ s.label }}</div>
+            <div style="font-size:15px;font-weight:500;margin-top:5px;line-height:1.4">{{ s.valore }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ doc.haIndice }}" hint-placeholder-val="{{ true }}">
+        <div data-blocco="1" style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px 20px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:10px">Indice</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 20px">
+            <sc-for list="{{ doc.indice }}" as="i" hint-placeholder-count="6">
+              <div style="display:flex;gap:10px;align-items:baseline;font-size:14px;line-height:1.7">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ i.n }}</span>
+                <span style="color:var(--body)">{{ i.titolo }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-for list="{{ doc.sezioni }}" as="s" hint-placeholder-count="5">
+        <section style="display:flex;flex-direction:column;gap:16px">
+          <div>
+            <sc-if value="{{ s.haOcchiello }}" hint-placeholder-val="{{ true }}">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">{{ s.occhiello }}</div>
+            </sc-if>
+            <h2 style="margin:0;font-size:22px;font-weight:600;letter-spacing:-0.01em;line-height:1.25;text-wrap:pretty">{{ s.n }}. {{ s.titolo }}</h2>
+            <sc-if value="{{ s.haSintesi }}" hint-placeholder-val="{{ true }}">
+              <p style="margin:8px 0 0;font-size:16px;line-height:1.6;color:var(--ink2);max-width:900px;text-wrap:pretty">{{ s.sintesi }}</p>
+            </sc-if>
+          </div>
+
+          <sc-for list="{{ s.blocchi }}" as="b" hint-placeholder-count="4">
+
+            <sc-if value="{{ b.isTesto }}">
+              <p data-blocco="1" style="margin:0;font-size:15px;line-height:1.7;color:var(--body);max-width:900px;text-wrap:pretty">{{ b.testo }}</p>
+            </sc-if>
+
+            <sc-if value="{{ b.isElenco }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.75;color:var(--body);max-width:900px">
+                  <sc-for list="{{ b.voci }}" as="v" hint-placeholder-count="4"><li style="text-wrap:pretty">{{ v }}</li></sc-for>
+                </ul>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isPassi }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                  <sc-for list="{{ b.voci }}" as="v" hint-placeholder-count="4">
+                    <div style="padding:14px 18px;border-top:1px solid var(--bd2);display:flex;gap:14px;align-items:baseline">
+                      <span style="flex:0 0 26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:var(--chip);font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:var(--ink2)">{{ v.n }}</span>
+                      <div style="flex:1 1 auto">
+                        <div style="font-size:15px;font-weight:500;line-height:1.4">{{ v.titolo }}</div>
+                        <div style="font-size:14px;color:var(--body);line-height:1.6;margin-top:3px;text-wrap:pretty">{{ v.testo }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isTabella }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                  <div style="display:grid;grid-template-columns:{{ b.cols }};background:var(--thead)">
+                    <sc-for list="{{ b.intestazioni }}" as="h" hint-placeholder-count="3">
+                      <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">{{ h }}</div>
+                    </sc-for>
+                  </div>
+                  <sc-for list="{{ b.righe }}" as="r" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:{{ b.cols }};border-top:1px solid var(--bd2)">
+                      <sc-for list="{{ r.celle }}" as="c" hint-placeholder-count="3">
+                        <div style="padding:11px 14px;font-size:13px;color:var(--body);line-height:1.5;text-wrap:pretty">{{ c }}</div>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isCampi }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                  <sc-for list="{{ b.voci }}" as="v" hint-placeholder-count="4">
+                    <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:grid;grid-template-columns:minmax(160px,260px) 1fr;gap:16px;align-items:baseline">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);overflow-wrap:anywhere">{{ v.etichetta }}</div>
+                      <div>
+                        <div style="font-size:14px;color:var(--body);line-height:1.5;text-wrap:pretty">{{ v.valore }}</div>
+                        <sc-if value="{{ v.haNota }}">
+                          <div style="font-size:12px;color:var(--ink4);margin-top:3px;line-height:1.5">{{ v.nota }}</div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isCodice }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="background:var(--track);border:1px solid var(--bd);border-radius:10px;padding:14px 16px">
+                  <sc-for list="{{ b.righe }}" as="r" hint-placeholder-count="3">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.75;color:var(--ink);overflow-wrap:anywhere">{{ r }}</div>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ b.haDidascalia }}">
+                  <div style="font-size:12px;color:var(--ink4);margin-top:6px;line-height:1.5">{{ b.didascalia }}</div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isNota }}">
+              <div data-blocco="1" style="background:var(--card);border:1px solid var(--bd);border-left:3px solid {{ b.noSolid }};border-radius:10px;padding:14px 18px;max-width:900px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:{{ b.noFg }};margin-bottom:6px">{{ b.titolo }}</div>
+                <div style="font-size:14px;line-height:1.6;color:var(--body);text-wrap:pretty">{{ b.testo }}</div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isFaq }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                  <sc-for list="{{ b.voci }}" as="v" hint-placeholder-count="4">
+                    <div style="padding:14px 18px;border-top:1px solid var(--bd2)">
+                      <div style="font-size:15px;font-weight:500;line-height:1.45;text-wrap:pretty">{{ v.domanda }}</div>
+                      <div style="font-size:14px;color:var(--body);line-height:1.6;margin-top:4px;text-wrap:pretty">{{ v.risposta }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ b.isCasi }}">
+              <div data-blocco="1">
+                <sc-if value="{{ b.haTitolo }}">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:8px">{{ b.titolo }}</div>
+                </sc-if>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ b.voci }}" as="v" hint-placeholder-count="4">
+                    <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px 18px">
+                      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between">
+                        <div style="display:flex;gap:10px;align-items:baseline;flex:1 1 320px">
+                          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#2f66b3">{{ v.id }}</span>
+                          <span style="font-size:15px;font-weight:500;line-height:1.4;text-wrap:pretty">{{ v.titolo }}</span>
+                        </div>
+                        <span style="padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ v.esBg }};color:{{ v.esFg }};white-space:nowrap">{{ v.esito }}</span>
+                      </div>
+                      <div style="display:grid;grid-template-columns:minmax(110px,130px) 1fr;gap:4px 14px;margin-top:10px;font-size:13px;line-height:1.55">
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding-top:3px">Precondizioni</div>
+                        <div style="color:var(--body);text-wrap:pretty">{{ v.precondizioni }}</div>
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding-top:3px">Passi</div>
+                        <div style="color:var(--body);text-wrap:pretty">{{ v.passi }}</div>
+                        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4);padding-top:3px">Atteso</div>
+                        <div style="color:var(--body);text-wrap:pretty">{{ v.atteso }}</div>
+                      </div>
+                      <sc-if value="{{ v.haNote }}">
+                        <div style="font-size:12px;color:var(--ink4);margin-top:8px;line-height:1.5">{{ v.note }}</div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+          </sc-for>
+        </section>
+      </sc-for>
+
+      <sc-if value="{{ doc.haChangelog }}" hint-placeholder-val="{{ true }}">
+        <section>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px">Revisioni del documento</div>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ doc.changelog }}" as="l" hint-placeholder-count="3">
+              <div style="padding:11px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink3);flex:0 0 90px">{{ l.dataStr }}</span>
+                <span style="flex:1 1 320px;font-size:14px;line-height:1.5">{{ l.modifiche }}</span>
+                <span style="font-size:12px;color:var(--ink4)">{{ l.fonte }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </sc-if>
+
+    </div>
+  </sc-if>
+
+  </div>
+
+  <footer style="margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4);display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between">
+    <span>{{ piedeSinistro }}</span>
+    <span>{{ doc.piedeDestro }}</span>
+  </footer>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+/* Configurazione: dossier.config.js, caricato prima di questa logica. Ogni chiave ha
+   un default, così una config assente o incompleta non rompe la vista. Il logo di
+   default è vuoto: i documenti non portano il marchio di nessuno se non lo si imposta. */
+const CFG = (() => {
+  const c = (typeof window !== "undefined" && window.dossierConfig) || {};
+  const b = c.branding || {}, v = c.vista || {};
+  const vm = v.manuali || {};
+  return {
+    logo: b.logo || "",
+    logoAlt: b.logoAlt || b.organizzazione || "Logo",
+    logoAltezza: Number(b.logoAltezza) > 0 ? Number(b.logoAltezza) : 26,
+    logoPlacca: b.logoPlaccaTemaScuro !== false,
+    organizzazione: b.organizzazione || "",
+    temaIniziale: ["auto", "light", "dark"].indexOf(v.temaIniziale) >= 0 ? v.temaIniziale : "auto",
+    mostraEsportazione: v.mostraEsportazione !== false,
+    docIniziale: vm.docIniziale || "",
+  };
+})();
+
+/* Ordine delle schede. Un documento non ancora previsto qui compare comunque, in coda:
+   il registro è la sorgente, questo è solo l'ordine di lettura consigliato. */
+const ORDINE = ["manual", "test", "install"];
+
+/* build.js, quando emette un solo documento, scrive window.dossierSolo: il file unico
+   contiene allora quel documento e basta, schede comprese. */
+const REGISTRO = (() => {
+  const reg = (typeof window !== "undefined" && window.dossierDocs) || {};
+  const solo = typeof window !== "undefined" && window.dossierSolo;
+  const chiavi = Object.keys(reg).filter((k) => reg[k] && (!solo || k === solo));
+  chiavi.sort((a, b) => {
+    const ia = ORDINE.indexOf(a), ib = ORDINE.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  return { reg, chiavi };
+})();
+
+class Component extends DCLogic {
+  /* I dati arrivano dai file <doc>.data.js, script classici caricati prima di questa
+     logica: sono già disponibili al primo render, senza fetch e senza server locale. */
+  state = {
+    doc: REGISTRO.chiavi.indexOf(CFG.docIniziale) >= 0 ? CFG.docIniziale : (REGISTRO.chiavi[0] || ""),
+    /* Emissione mostrata: l'ultima, cioè quella che build.js ha appena scritto.
+       Le precedenti stanno in window.dossierStorico, dentro il file emesso. */
+    iVer: -1,
+    tema: "light",
+  };
+
+  componentDidMount() {
+    let tema = null;
+    try { tema = localStorage.getItem("dossier.tema"); } catch (e) {}
+    const tp = this.props.temaIniziale;
+    const forzato = tp && tp !== "config" ? tp : CFG.temaIniziale;
+    if (forzato === "light" || forzato === "dark") tema = forzato;
+    if (!tema) {
+      tema = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    this.applicaTema(tema);
+    this.setState({ tema: tema });
+
+    // Ctrl+P: la stampa è sempre in tema chiaro
+    this._beforePrint = () => {
+      if (this.state.tema === "dark") {
+        this._temaPrePrint = "dark";
+        this.setState({ tema: "light" });
+      }
+    };
+    this._afterPrint = () => {
+      if (this._temaPrePrint) {
+        this.setState({ tema: this._temaPrePrint });
+        this._temaPrePrint = null;
+      }
+    };
+    window.addEventListener("beforeprint", this._beforePrint);
+    window.addEventListener("afterprint", this._afterPrint);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("beforeprint", this._beforePrint);
+    window.removeEventListener("afterprint", this._afterPrint);
+  }
+
+  applicaTema(t) {
+    try { document.body.style.background = t === "dark" ? "#15171a" : "#f4f2ee"; } catch (e) {}
+    try { localStorage.setItem("dossier.tema", t); } catch (e) {}
+  }
+
+  /* Lo storico c'è solo nei file emessi da build.js: nella cartella di lavoro la
+     tendina non compare e si vedono i dati di <doc>.data.js. */
+  storico() {
+    const s = typeof window !== "undefined" && window.dossierStorico;
+    return Array.isArray(s) && s.length ? s : [];
+  }
+
+  iVersione() {
+    const st = this.storico();
+    return this.state.iVer < 0 ? st.length - 1 : Math.min(this.state.iVer, st.length - 1);
+  }
+
+  documento() {
+    const st = this.storico();
+    if (st.length) {
+      const v = st[this.iVersione()];
+      if (v && v.dati) return v.dati;
+    }
+    return REGISTRO.reg[this.state.doc] || null;
+  }
+
+  /* "v20260921.02 · 21/09/2026 09:56 · 1.4.0": in testa l'identificativo
+     dell'emissione — lo stesso che nomina i file datati già consegnati, così la
+     riga della tendina e il file si riconoscono a vicenda — poi quando è uscita e
+     la versione del progetto di allora, che resta la stessa per più emissioni.
+     L'ora compare solo dove in un giorno ce n'è più d'una: senza, due righe
+     sarebbero indistinguibili. */
+  etichettaVersione(v, tutte) {
+    if (!v) return "";
+    const g = String(v.emessoIl || "").slice(0, 10);
+    const ora = String(v.emessoIl || "").slice(11, 16);
+    const piuNelGiorno = (tutte || []).filter((x) => String(x.emessoIl || "").slice(0, 10) === g).length > 1;
+    const quando = this.fmt(g) + (piuNelGiorno && ora ? " " + ora : "");
+    /* Le emissioni incorporate da un file precedente non hanno un identificativo
+       di questa forma: lì resta la data, che è l'unica cosa certa. */
+    const id = /^v[0-9]{8}[.][0-9]{2}$/.test(String(v.id || "")) ? String(v.id) : "";
+    return (id ? id + " · " : "") + quando + (v.versione ? " · " + v.versione : "");
+  }
+
+  /* Il logo è opzionale: senza, l'intestazione parte direttamente dal titolo. */
+  logoImg(tema, conPlacca) {
+    if (!CFG.logo) return "";
+    const img = '<img src="' + CFG.logo + '" alt="' + CFG.logoAlt.replace(/"/g, "&quot;") +
+      '" style="display:block;height:' + CFG.logoAltezza + 'px;width:auto">';
+    if (!conPlacca) return img;
+    return '<span style="display:inline-flex;padding:' + this.logoPad(tema) +
+      ";background:" + this.logoBg(tema) + ';border-radius:6px">' + img + "</span>";
+  }
+
+  logoPad(tema) { return tema === "dark" && CFG.logoPlacca ? "7px 11px" : "0"; }
+  logoBg(tema) { return tema === "dark" && CFG.logoPlacca ? "#f4f5f7" : "transparent"; }
+
+  conOrg(testo) {
+    return CFG.organizzazione ? CFG.organizzazione + " · " + testo : testo;
+  }
+
+  vars(t) {
+    return t === "dark"
+      ? "--bg:#15171a;--card:#1d2024;--ink:#eceef1;--onink:#15171a;--body:#c4c8ce;--ink2:#a2a8b0;--ink3:#868d96;--ink4:#6d737b;--bd:#2c3036;--bd2:#272b30;--rule:#2c3036;--chip:#23272c;--tag:#272c32;--thead:#20242a;--track:#20242a"
+      : "--bg:#f4f2ee;--card:#fffefb;--ink:#23211e;--onink:#f6f4f0;--body:#4a463f;--ink2:#6e6a62;--ink3:#8a857c;--ink4:#a9a39a;--bd:#e4e0d8;--bd2:#ece8e0;--rule:#ddd8ce;--chip:#e9e5dd;--tag:#efece5;--thead:#faf8f4;--track:#f7f5f1";
+  }
+
+  nomeFile() {
+    const d = this.documento() || {};
+    const m = d.meta || {};
+    const prog = String(m.progetto || "documento").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return [prog, this.state.doc || "doc", m.aggiornatoIl || ""].filter(Boolean).join("_");
+  }
+
+  conTemaChiaro(fn) {
+    const orig = this.state.tema;
+    if (orig !== "dark") return Promise.resolve(fn()).then((r) => r);
+    return new Promise((ok) => {
+      this.setState({ tema: "light" }, () => setTimeout(() => ok(), 60));
+    })
+      .then(() => fn())
+      .then((r) => {
+        this.setState({ tema: orig });
+        return r;
+      })
+      .catch((e) => {
+        this.setState({ tema: orig });
+        throw e;
+      });
+  }
+
+  stampa() {
+    this.conTemaChiaro(
+      () =>
+        new Promise((ok) => {
+          window.print();
+          setTimeout(ok, 300);
+        })
+    );
+  }
+
+  /* Il documento visibile, in un file HTML autonomo: è la copia che si consegna. */
+  esporta() {
+    const area = this.area;
+    if (!area) return;
+    const d = this.documento() || {};
+    const m = d.meta || {};
+    const t = this.state.tema;
+    const titolo = d.titolo || "Documento";
+    const doc =
+      '<!DOCTYPE html>\n<html lang="it"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      "<title>" + (m.progetto || "") + " — " + titolo + "</title>" +
+      '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">' +
+      "<style>*{box-sizing:border-box}html,body{margin:0;background:" + (t === "dark" ? "#15171a" : "#f4f2ee") +
+      "}body{font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}" +
+      "a{color:" + (t === "dark" ? "#8fbcf0" : "#2f66b3") + ";text-decoration:none}" +
+      "@media print{@page{size:A4 landscape;margin:10mm}body{background:#fff!important}" +
+      "section{break-before:page;page-break-before:always}section:first-of-type{break-before:auto;page-break-before:auto}" +
+      "[data-blocco]{break-inside:avoid;page-break-inside:avoid}}</style></head><body>" +
+      '<div style="' + this.vars(t) + ';background:var(--bg);color:var(--ink);min-height:100vh">' +
+      '<div style="max-width:1180px;margin:0 auto;padding:28px 24px 64px">' +
+      '<header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;padding-bottom:20px;margin-bottom:26px;border-bottom:1px solid var(--rule)">' +
+      '<div><div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">' +
+      this.logoImg(t, true) +
+      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">' + titolo +
+      (m.riservato ? " · Interno" : "") + "</span></div>" +
+      '<h1 style="margin:0 0 4px;font-size:30px;font-weight:600;letter-spacing:-0.01em">' + (m.progetto || "") + "</h1>" +
+      '<div style="font-size:14px;color:var(--ink2)">' + (d.sottotitolo || "") + "</div></div>" +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink3);text-align:right">' +
+      (m.versione ? "v" + m.versione + "<br>" : "") + "aggiornato al " + this.fmt(m.aggiornatoIl) + "</div></header>" +
+      area.innerHTML +
+      '<footer style="margin-top:40px;padding-top:16px;border-top:1px solid var(--rule);font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink4);display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between">' +
+      "<span>" + this.conOrg(titolo) + "</span><span>" + (m.progetto || "") + (m.versione ? " · v" + m.versione : "") + "</span></footer>" +
+      "</div></div></body></html>";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([doc], { type: "text/html" }));
+    a.download = this.nomeFile() + ".html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  fmt(iso) {
+    if (!iso || iso.length < 10) return iso || "—";
+    const [y, m, g] = iso.split("-");
+    return g + "/" + m + "/" + y;
+  }
+
+  tone(key) {
+    const chiaro = {
+      verde: { bg: "#e2f3e8", fg: "#196b3f", solid: "#3d9a66" },
+      blu: { bg: "#e3eefb", fg: "#21508f", solid: "#3f78c4" },
+      ambra: { bg: "#f8ecd8", fg: "#7e5412", solid: "#cf9531" },
+      rosso: { bg: "#fbe7e2", fg: "#9c3520", solid: "#c8553a" },
+      neutro: { bg: "#efece5", fg: "#6e6a62", solid: "#b8b2a8" },
+    };
+    const scuro = {
+      verde: { bg: "#103a22", fg: "#97e3b2", solid: "#40a06b" },
+      blu: { bg: "#14314f", fg: "#b8d4f5", solid: "#4581cf" },
+      ambra: { bg: "#3c2a0d", fg: "#f2d8a1", solid: "#d59c35" },
+      rosso: { bg: "#45201a", fg: "#f6c3b6", solid: "#d75e42" },
+      neutro: { bg: "#272c32", fg: "#a2a8b0", solid: "#4c535b" },
+    };
+    const t = this.state.tema === "dark" ? scuro : chiaro;
+    return t[key] || t.neutro;
+  }
+
+  esitoTone(e) {
+    const k = String(e || "").toLowerCase();
+    if (/passat|ok|superat/.test(k)) return this.tone("verde");
+    if (/fallit|ko/.test(k)) return this.tone("rosso");
+    if (/blocc/.test(k)) return this.tone("ambra");
+    return this.tone("neutro");
+  }
+
+  notaTone(t) {
+    const k = String(t || "").toLowerCase();
+    if (k === "ok") return this.tone("verde");
+    if (k === "attenzione") return this.tone("ambra");
+    if (k === "critico") return this.tone("rosso");
+    return this.tone("blu");
+  }
+
+  /* Un blocco sconosciuto non rompe la pagina: nessun flag is… è vero, non si stampa. */
+  preparaBlocchi(blocchi) {
+    return (blocchi || []).map((b) => {
+      const o = Object.assign({}, b, {
+        haTitolo: !!b.titolo,
+        isTesto: b.tipo === "testo",
+        isElenco: b.tipo === "elenco",
+        isPassi: b.tipo === "passi",
+        isTabella: b.tipo === "tabella",
+        isCampi: b.tipo === "campi",
+        isCodice: b.tipo === "codice",
+        isNota: b.tipo === "nota",
+        isFaq: b.tipo === "faq",
+        isCasi: b.tipo === "casi",
+      });
+      if (o.isPassi) {
+        o.voci = (b.voci || []).map((v, i) => Object.assign({}, v, { n: i + 1 }));
+      }
+      if (o.isTabella) {
+        const n = (b.intestazioni || []).length || ((b.righe || [])[0] || []).length || 1;
+        o.cols = "repeat(" + n + ",minmax(0,1fr))";
+        o.righe = (b.righe || []).map((r) => ({ celle: r }));
+      }
+      if (o.isCampi) {
+        o.voci = (b.voci || []).map((v) => Object.assign({}, v, { haNota: !!v.nota }));
+      }
+      if (o.isCodice) {
+        o.haDidascalia = !!b.didascalia;
+      }
+      if (o.isNota) {
+        const t = this.notaTone(b.tono);
+        o.noFg = t.fg;
+        o.noSolid = t.solid;
+        o.titolo = b.titolo || "Nota";
+      }
+      if (o.isCasi) {
+        o.voci = (b.voci || []).map((v) => {
+          const t = this.esitoTone(v.esito);
+          return Object.assign({}, v, {
+            esBg: t.bg, esFg: t.fg,
+            esito: v.esito || "da eseguire",
+            precondizioni: v.precondizioni || "—",
+            passi: v.passi || "—",
+            atteso: v.atteso || "—",
+            haNote: !!v.note,
+          });
+        });
+      }
+      return o;
+    });
+  }
+
+  renderVals() {
+    const chiavi = REGISTRO.chiavi;
+    const d = this.documento();
+    const m = (d || {}).meta || {};
+    const ris = this.tone("ambra");
+
+    /* Le schede compaiono solo se c'è più di un documento: con uno solo sarebbero
+       un comando che non porta da nessuna parte. */
+    const tabs = chiavi.length > 1
+      ? chiavi.map((k) => {
+          const attivo = k === this.state.doc;
+          const doc = REGISTRO.reg[k] || {};
+          return {
+            label: doc.scheda || doc.titolo || k,
+            bg: attivo ? "var(--ink)" : "var(--card)",
+            fg: attivo ? "var(--onink)" : "var(--ink2)",
+            bd: attivo ? "var(--ink)" : "var(--bd)",
+            onClick: () => this.setState({ doc: k }),
+          };
+        })
+      : [];
+
+    const sezioni = ((d || {}).sezioni || []).map((s, i) =>
+      Object.assign({}, s, {
+        n: i + 1,
+        haOcchiello: !!s.occhiello,
+        haSintesi: !!s.sintesi,
+        blocchi: this.preparaBlocchi(s.blocchi),
+      })
+    );
+
+    const schede = [
+      { label: "Versione", valore: m.versione || "—" },
+      { label: "Revisione", valore: m.revisione || "—" },
+      { label: "Destinatari", valore: m.pubblico || "—" },
+      { label: "Aggiornato", valore: this.fmt(m.aggiornatoIl) },
+      { label: "Fonte", valore: m.fonte || "—" },
+    ];
+
+    /* Emissioni contenute nel file: la tendina compare solo se ce n'è più d'una,
+       e parte sempre dall'ultima. */
+    const st = this.storico();
+    const iVer = this.iVersione();
+    const vaiA = (i) => { if (st[i]) this.setState({ iVer: i }); };
+
+    return {
+      tabs,
+      haVersioni: st.length > 1,
+      versioni: st.map((v, i) => ({ valore: String(i), label: this.etichettaVersione(v, st) })),
+      verSel: String(iVer),
+      cambiaVersione: (e) => vaiA(Number(e && e.target ? e.target.value : e)),
+      /* Con una emissione vecchia a video il documento non è quello corrente:
+         va detto, o si legge una procedura superata credendola di oggi. */
+      nonUltima: st.length > 1 && iVer < st.length - 1,
+      versioneLabel: this.etichettaVersione(st[iVer], st),
+      ultimaLabel: this.etichettaVersione(st[st.length - 1], st),
+      vaiUltima: () => vaiA(st.length - 1),
+      haLogo: !!CFG.logo,
+      logoSrc: CFG.logo,
+      logoAlt: CFG.logoAlt,
+      logoAltezza: CFG.logoAltezza,
+      logoPad: this.logoPad(this.state.tema),
+      logoBg: this.logoBg(this.state.tema),
+      risBg: ris.bg,
+      risFg: ris.fg,
+      piedeSinistro: this.conOrg("i contenuti vivono in " + (this.state.doc || "doc") + ".data.js"),
+      tema: this.state.tema,
+      temaLabel: this.state.tema === "dark" ? "☀ Chiaro" : "☾ Scuro",
+      toggleTema: () => {
+        const t = this.state.tema === "dark" ? "light" : "dark";
+        this.applicaTema(t);
+        this.setState({ tema: t });
+      },
+      areaRef: (el) => { this.area = el; },
+      esportaHtml: () => this.conTemaChiaro(() => this.esporta()),
+      esportaPdf: () => this.stampa(),
+      mostraEsport: this.props.mostraEsportazione === "config" || this.props.mostraEsportazione == null
+        ? CFG.mostraEsportazione
+        : this.props.mostraEsportazione !== "no" && this.props.mostraEsportazione !== false,
+      caricamento: !d,
+      haDoc: !!d,
+      doc: {
+        titolo: (d || {}).titolo || "",
+        sottotitolo: (d || {}).sottotitolo || "",
+        progetto: m.progetto || (d || {}).titolo || "",
+        riservato: !!m.riservato,
+        versioneStr: m.versione ? "v" + m.versione + " · " : "",
+        aggiornatoIlStr: this.fmt(m.aggiornatoIl),
+        schede,
+        indice: sezioni.map((s) => ({ n: s.n, titolo: s.titolo })),
+        haIndice: sezioni.length > 1,
+        sezioni,
+        changelog: ((d || {}).changelog || []).map((l) =>
+          Object.assign({}, l, { dataStr: this.fmt(l.data) })
+        ),
+        haChangelog: (((d || {}).changelog) || []).length > 0,
+        piedeDestro: (m.progetto || "") + (m.versione ? " · v" + m.versione : ""),
+      },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

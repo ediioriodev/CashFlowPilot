@@ -1,552 +1,547 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import ScopeToggle from "@/components/ui/ScopeToggle";
-import { expenseService } from "@/services/expenseService";
-import { userService, UserSettings } from "@/services/userService";
-import { useScope } from "@/context/ScopeContext";
-import { Spesa } from "@/types/expenses";
-import { formatCurrency, formatDate, getCurrentMonthRange, getCustomPeriodRange } from "@/lib/formatUtils";
-import { Clock, Pencil, Trash, Check, AlertCircle, Eye, X, Filter, RotateCcw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import clsx from "clsx";
-import ConfirmModal from "@/components/ui/ConfirmModal";
-import EditExpenseModal from "@/components/expenses/EditExpenseModal";
-import { MultiSelect } from "@/components/ui/MultiSelect";
+import {
+  AlertTriangle,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Check,
+  Paperclip,
+  Pencil,
+  Repeat,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  Wallet,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
-type FilterMode = 'confirmed_only' | 'confirmed_plus_today' | 'all';
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PageHeader, { PageBody } from "@/components/layout/PageHeader";
+import PeriodBar from "@/components/layout/PeriodBar";
+import ScopeSwitch from "@/components/ui/ScopeSwitch";
+import {
+  Avatar,
+  Button,
+  Card,
+  CardHeader,
+  Chip,
+  EmptyState,
+  Eyebrow,
+  IconButton,
+  Modal,
+  Pill,
+  Skeleton,
+} from "@/components/ui/kit";
+import { Bars } from "@/components/ui/charts";
+import EditExpenseModal from "@/components/expenses/EditExpenseModal";
+import { ReceiptViewer } from "@/components/expenses/ReceiptPicker";
+import { MultiSelect } from "@/components/ui/MultiSelect";
+import { usePeriod } from "@/context/PeriodContext";
+import { useScope } from "@/context/ScopeContext";
+import { useAuth } from "@/context/AuthContext";
+import { usePeriodExpenses } from "@/hooks/usePeriodExpenses";
+import { expenseService } from "@/services/expenseService";
+import { familyService, type Member } from "@/services/familyService";
+import { formatCurrency } from "@/lib/formatUtils";
+import { groupByDay, todayISO } from "@/lib/finance";
+import type { Spesa } from "@/types/expenses";
 
-import { useTheme } from "@/context/ThemeContext";
+type Filtro = "tutti" | "uscite" | "entrate" | "da-confermare" | "ricorrenti";
 
-const EMPTY_LABEL = "(—)";
-const toLabel = (val: string | undefined | null): string =>
-  val && val.trim() ? val : EMPTY_LABEL;
+const FILTRI: { value: Filtro; label: string }[] = [
+  { value: "tutti", label: "Tutti" },
+  { value: "uscite", label: "Uscite" },
+  { value: "entrate", label: "Entrate" },
+  { value: "da-confermare", label: "Da confermare" },
+  { value: "ricorrenti", label: "Ricorrenti" },
+];
 
-export default function SpesePage() {
-  const { scope, isInitialized } = useScope();
-  const { isDarkMode } = useTheme(); 
+export default function MovimentiPage() {
+  const { label: periodLabel } = usePeriod();
+  const { scope } = useScope();
+  const { user, profile } = useAuth();
+  const { transactions, overview: o, loading, patch, remove, reload } = usePeriodExpenses();
 
-  const [loading, setLoading] = useState(true);
-  const [expenses, setExpenses] = useState<Spesa[]>([]);
-  
-  // Modals state
-  const [deleteId, setDeleteId] = useState<number | null>(null);
-  const [confirmId, setConfirmId] = useState<number | null>(null);
-  const [editExpense, setEditExpense] = useState<Spesa | null>(null);
+  const [filtro, setFiltro] = useState<Filtro>("tutti");
 
-  // Filters
-  const [range, setRange] = useState(getCurrentMonthRange());
-  const [pendingRange, setPendingRange] = useState(getCurrentMonthRange());
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-
+  // Letto dalla query string senza useSearchParams: quest'ultimo obbliga a un
+  // confine <Suspense> in fase di build e qui non porta nessun vantaggio.
   useEffect(() => {
-    userService.getSettings().then((s) => {
-      setUserSettings(s);
-      
-      // Update range with custom period if active
-      if (s.custom_period_active) {
-            const today = new Date();
-            let targetMonth = today.getMonth();
-            let targetYear = today.getFullYear();
-          
-            if (today.getDate() >= s.custom_period_start_day) {
-                targetMonth++;
-                if (targetMonth > 11) {
-                    targetMonth = 0;
-                    targetYear++;
-                }
-            }
-          
-            const r = getCustomPeriodRange(targetYear, targetMonth, s.custom_period_start_day, true);
-            setRange(r);
-            setPendingRange(r);
-      }
-    });
+    const f = new URLSearchParams(window.location.search).get("filtro");
+    if (f && FILTRI.some((x) => x.value === f)) setFiltro(f as Filtro);
   }, []);
-
-  const [filterMode, setFilterMode] = useState<FilterMode>('confirmed_only');
-  const [filterNegozio, setFilterNegozio] = useState<string[]>([]);
-  const [filterAmbito, setFilterAmbito] = useState<string[]>([]);
-  const [filterTipo, setFilterTipo] = useState<string[]>([]);
-  const [filterNote, setFilterNote] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const [isEditingRange, setIsEditingRange] = useState(false);
-  const [isPanelOpen, setIsPanelOpen] = useState(true);
-  
+  const [catFilter, setCatFilter] = useState<string[]>([]);
+  const [payerFilter, setPayerFilter] = useState<string[]>([]);
+
+  const [members, setMembers] = useState<Member[]>([]);
+  const [editing, setEditing] = useState<Spesa | null>(null);
+  const [toDelete, setToDelete] = useState<Spesa | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [scontrino, setScontrino] = useState<string | null>(null);
+
   useEffect(() => {
-    if (isInitialized) {
-      loadExpenses();
+    if (scope !== "C") {
+      setMembers([]);
+      return;
     }
-  }, [range, scope, isInitialized]);
-  
-  const loadExpenses = async () => {
-    if (range.start > range.end) return;
-    setLoading(true);
-    try {
-      const data = await expenseService.getExpenses(range.start, range.end, scope);
-      setExpenses(data);
-    } catch (error) {
-      console.error(error);
-      toast.error("Errore nel caricamento delle spese");
-    } finally {
-      setLoading(false);
-    }
-  };
+    let alive = true;
+    familyService.getMembers().then((m) => alive && setMembers(m));
+    return () => {
+      alive = false;
+    };
+  }, [scope]);
 
-  const shiftPeriod = (direction: 'prev' | 'next') => {
-    if (userSettings?.custom_period_active && userSettings.custom_period_start_day > 1) {
-      // range.start = createDateWithClamp(year, targetMonth - 1, startDay)
-      // so targetMonth (0-indexed) = range.start month + 1
-      const startDate = new Date(range.start + 'T00:00:00');
-      let targetYear = startDate.getFullYear();
-      let targetMonth = startDate.getMonth() + 1 + (direction === 'next' ? 1 : -1);
-      if (targetMonth > 11) { targetMonth -= 12; targetYear++; }
-      if (targetMonth < 0)  { targetMonth += 12; targetYear--; }
-      const r = getCustomPeriodRange(targetYear, targetMonth, userSettings.custom_period_start_day, true);
-      setRange(r); setPendingRange(r);
-    } else {
-      const startDate = new Date(range.start + 'T00:00:00');
-      let y = startDate.getFullYear();
-      let m = startDate.getMonth() + (direction === 'next' ? 1 : -1);
-      if (m > 11) { m = 0; y++; }
-      if (m < 0)  { m = 11; y--; }
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      const mm = String(m + 1).padStart(2, '0');
-      const r = { start: `${y}-${mm}-01`, end: `${y}-${mm}-${String(lastDay).padStart(2, '0')}` };
-      setRange(r); setPendingRange(r);
-    }
-  };
+  const memberById = useMemo(
+    () => new Map(members.map((m) => [m.userId, m])),
+    [members]
+  );
 
-  const resetToCurrentPeriod = () => {
-    if (userSettings?.custom_period_active) {
-      const today = new Date();
-      let targetMonth = today.getMonth();
-      let targetYear = today.getFullYear();
-      if (today.getDate() >= userSettings.custom_period_start_day) {
-        targetMonth++;
-        if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+  const categorie = useMemo(
+    () => [...new Set(transactions.map((t) => (t.ambito || "").trim()).filter(Boolean))].sort(),
+    [transactions]
+  );
+
+  const visibili = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return transactions.filter((t) => {
+      if (filtro === "uscite" && t.tipo_transazione !== "spesa") return false;
+      if (filtro === "entrate" && t.tipo_transazione !== "entrata") return false;
+      if (filtro === "da-confermare" && t.confermata) return false;
+      if (filtro === "ricorrenti" && !t.ricorrente) return false;
+      if (catFilter.length && !catFilter.includes((t.ambito || "").trim())) return false;
+      if (payerFilter.length && !payerFilter.includes(t.paid_by ?? "__fondo__")) return false;
+      if (q) {
+        const hay = `${t.negozio ?? ""} ${t.ambito ?? ""} ${t.note_spese ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
-      const r = getCustomPeriodRange(targetYear, targetMonth, userSettings.custom_period_start_day, true);
-      setRange(r);
-      setPendingRange(r);
-    } else {
-      const r = getCurrentMonthRange();
-      setRange(r);
-      setPendingRange(r);
-    }
-  };
+      return true;
+    });
+  }, [transactions, filtro, query, catFilter, payerFilter]);
 
-  const handleDelete = async () => {
-      if (!deleteId) return;
-      try {
-          await expenseService.deleteExpense(deleteId, scope);
-          toast.success("Spesa eliminata");
-          setExpenses(expenses.filter(e => e.id !== deleteId));
-          setDeleteId(null);
-      } catch (e) {
-          console.error(e);
-          toast.error("Errore durante l'eliminazione");
-      }
-  };
+  const giorni = useMemo(() => groupByDay(visibili), [visibili]);
+  const activeFilters = catFilter.length + payerFilter.length;
+  const filtriAttivi = filtro !== "tutti" || query.trim() !== "" || activeFilters > 0;
 
-  const handleConfirm = async () => {
-    if (!confirmId) return;
+  const confirm = async (t: Spesa) => {
+    if (!t.id) return;
+    setBusy(t.id);
     try {
-        await expenseService.confirmExpense(confirmId, scope);
-        toast.success("Spesa confermata");
-        setExpenses(expenses.map(e => e.id === confirmId ? { ...e, confermata: true } : e));
-        setConfirmId(null);
+      await expenseService.confirmExpense(t.id, scope);
+      patch(t.id, { confermata: true });
+      toast.success("Movimento confermato");
     } catch (e) {
-        console.error(e);
-        toast.error("Errore durante la conferma");
+      console.error(e);
+      toast.error("Non è stato possibile confermare");
+    } finally {
+      setBusy(null);
     }
   };
 
-  const negozioOptions = useMemo(() => {
-    const vals = Array.from(new Set(expenses.map(e => toLabel(e.negozio)))).sort();
-    return vals.includes(EMPTY_LABEL) ? [EMPTY_LABEL, ...vals.filter(v => v !== EMPTY_LABEL)] : vals;
-  }, [expenses]);
-
-  const ambitoOptions = useMemo(() => {
-    const vals = Array.from(new Set(expenses.map(e => toLabel(e.ambito)))).sort();
-    return vals.includes(EMPTY_LABEL) ? [EMPTY_LABEL, ...vals.filter(v => v !== EMPTY_LABEL)] : vals;
-  }, [expenses]);
-
-  const tipoOptions = useMemo(() =>
-    Array.from(new Set(expenses.map(e => e.tipo_transazione))).sort()
-  , [expenses]);
-
-  const noteOptions = useMemo(() => {
-    const vals = Array.from(new Set(expenses.map(e => toLabel(e.note_spese)))).sort();
-    return vals.includes(EMPTY_LABEL) ? [EMPTY_LABEL, ...vals.filter(v => v !== EMPTY_LABEL)] : vals;
-  }, [expenses]);
-
-  const activeFilterCount = filterNegozio.length + filterAmbito.length + filterTipo.length + filterNote.length;
-  const rangeIsDirty = pendingRange.start !== range.start || pendingRange.end !== range.end;
-
-  const filteredExpenses = expenses.filter(e => {
-    // 1. MultiSelect filters (AND between fields, OR within each field)
-    if (filterNegozio.length > 0 && !filterNegozio.includes(toLabel(e.negozio))) return false;
-    if (filterAmbito.length > 0 && !filterAmbito.includes(toLabel(e.ambito))) return false;
-    if (filterTipo.length > 0 && !filterTipo.includes(e.tipo_transazione)) return false;
-    if (filterNote.length > 0 && !filterNote.includes(toLabel(e.note_spese))) return false;
-
-    // 2. Filter by status (Confirmed/All/Today)
-    if (e.confermata) return true; // Always show confirmed
-
-    const today = new Date().toISOString().split('T')[0];
-    
-    if (filterMode === 'confirmed_only') return false;
-    if (filterMode === 'all') return true;
-    if (filterMode === 'confirmed_plus_today') {
-        return e.data_spesa <= today;
+  const doDelete = async () => {
+    const t = toDelete;
+    if (!t?.id) return;
+    setBusy(t.id);
+    try {
+      await expenseService.deleteExpense(t.id, scope);
+      remove(t.id);
+      setToDelete(null);
+      toast.success(`"${t.negozio || t.ambito}" eliminato`, {
+        description: "Puoi ripristinarlo ricreandolo.",
+        action: { label: "Annulla", onClick: () => restore(t) },
+      });
+    } catch (e) {
+      console.error(e);
+      toast.error("Eliminazione non riuscita");
+    } finally {
+      setBusy(null);
     }
-    return false;
-  });
+  };
 
-  const totalImporto = filteredExpenses.reduce((acc, curr) => {
-    const isEntrata = curr.tipo_transazione === 'entrata';
-    return acc + (isEntrata ? Number(curr.importo) : -Number(curr.importo));
-  }, 0);
-
-  // Forecast: all expenses passing MultiSelect filters (ignore filterMode)
-  const forecastExpenses = expenses.filter(e => {
-    if (filterNegozio.length > 0 && !filterNegozio.includes(toLabel(e.negozio))) return false;
-    if (filterAmbito.length > 0 && !filterAmbito.includes(toLabel(e.ambito))) return false;
-    if (filterTipo.length > 0 && !filterTipo.includes(e.tipo_transazione)) return false;
-    if (filterNote.length > 0 && !filterNote.includes(toLabel(e.note_spese))) return false;
-    return true;
-  });
-  const forecastTotal = forecastExpenses.reduce((acc, curr) => {
-    const isEntrata = curr.tipo_transazione === 'entrata';
-    return acc + (isEntrata ? Number(curr.importo) : -Number(curr.importo));
-  }, 0);
-
-  const totalLabel =
-    filterMode === 'confirmed_only' ? 'SALDO CONFERMATO' :
-    filterMode === 'confirmed_plus_today' ? 'FINO AD OGGI' :
-    'PREVISIONE TOTALE';
-
-  const rangeLabel = (() => {
-    const s = new Date(range.start + 'T00:00:00');
-    const e = new Date(range.end + 'T00:00:00');
-    const fmtShort = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short' });
-    const fmtFull  = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
-    if (s.getFullYear() === e.getFullYear()) {
-      return `${fmtShort.format(s)} — ${fmtFull.format(e)}`;
+  // "Annulla" ricrea il movimento: il soft-delete a DB non espone un ripristino.
+  const restore = async (t: Spesa) => {
+    try {
+      await expenseService.createExpense({ ...t, id: undefined });
+      await reload();
+      toast.success("Movimento ripristinato");
+    } catch (e) {
+      console.error(e);
+      toast.error("Ripristino non riuscito");
     }
-    return `${fmtFull.format(s)} — ${fmtFull.format(e)}`;
-  })();
+  };
 
   return (
     <ProtectedRoute>
-      <div className={clsx("min-h-screen pb-20 transition-colors duration-300", scope === 'P' ? "bg-gray-50/90 dark:bg-gray-950/90" : "bg-gray-50 dark:bg-gray-950")}>
-        {/* Header removed - using global Header */}
+      <PageHeader
+        title="Movimenti"
+        subtitle={`${periodLabel} · ${visibili.length} ${visibili.length === 1 ? "voce" : "voci"}`}
+        actions={
+          <IconButton
+            label={showFilters ? "Nascondi filtri" : "Mostra filtri"}
+            icon={SlidersHorizontal}
+            onClick={() => setShowFilters((v) => !v)}
+            className={activeFilters ? "text-accent" : undefined}
+          />
+        }
+      >
+        <ScopeSwitch />
 
-        <main className="p-4 max-w-2xl mx-auto space-y-4">
-           {/* Total Card & Filters */}
-           <div className={clsx("bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col gap-3 p-3", !isPanelOpen && "sticky top-20 z-10")}>
+        <div className="flex items-center gap-2 rounded-pill border border-line bg-surface px-3.5">
+          <Search className="h-4 w-4 shrink-0 text-faint" aria-hidden />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Cerca negozio, categoria, nota…"
+            aria-label="Cerca fra i movimenti"
+            className="min-h-11 w-full bg-transparent text-sm outline-none placeholder:text-faint"
+          />
+          {query && <IconButton label="Cancella ricerca" icon={X} onClick={() => setQuery("")} className="h-8 w-8" />}
+        </div>
 
-              {/* Row 1: Period navigation */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => shiftPeriod('prev')}
-                  title="Periodo precedente"
-                  className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100 transition-colors shrink-0"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {isEditingRange ? (
-                  <div className="flex items-center gap-1 flex-1 min-w-0">
-                    <input
-                      type="date"
-                      value={pendingRange.start}
-                      onChange={(e) => setPendingRange({ ...pendingRange, start: e.target.value })}
-                      className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                    />
-                    <span className="text-gray-400 text-xs shrink-0">—</span>
-                    <input
-                      type="date"
-                      value={pendingRange.end}
-                      onChange={(e) => setPendingRange({ ...pendingRange, end: e.target.value })}
-                      className="text-xs font-medium text-gray-800 dark:text-gray-100 bg-transparent border border-gray-200 dark:border-gray-700 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer w-full min-w-0"
-                    />
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setIsEditingRange(true)}
-                    className="flex-1 text-center text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-2 py-1 transition-colors"
-                  >
-                    {rangeLabel}
-                  </button>
-                )}
-
-                <button
-                  onClick={() => shiftPeriod('next')}
-                  title="Periodo successivo"
-                  className="p-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-100 transition-colors shrink-0"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <button
-                    onClick={resetToCurrentPeriod}
-                    title="Ripristina periodo corrente"
-                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                  {isEditingRange ? (
-                    <>
-                      <button
-                        onClick={() => { setPendingRange(range); setIsEditingRange(false); }}
-                        title="Annulla"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => { if (rangeIsDirty) { setRange(pendingRange); setIsEditingRange(false); } }}
-                        title="Applica intervallo personalizzato"
-                        disabled={!rangeIsDirty}
-                        className={clsx(
-                          "p-1.5 rounded-lg transition-colors",
-                          rangeIsDirty
-                            ? "text-white bg-blue-600 hover:bg-blue-700"
-                            : "text-gray-300 dark:text-gray-600 cursor-default"
-                        )}
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => setIsEditingRange(true)}
-                        title="Modifica intervallo"
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => setIsPanelOpen(o => !o)}
-                        title={isPanelOpen ? "Comprimi" : "Espandi"}
-                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        {isPanelOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {isPanelOpen && (<>
-              {/* Row 1b: Labeled total */}
-              <div className="flex items-center justify-around">
-                <div className="flex flex-col items-center">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-blue-600 dark:text-blue-400 leading-tight">
-                    {totalLabel}
-                  </p>
-                  <p className={clsx("font-bold text-xl leading-tight", totalImporto >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-                    {totalImporto > 0 ? '+' : ''}{formatCurrency(totalImporto)}
-                  </p>
-                </div>
-                {filterMode !== 'all' && (
-                  <>
-                    <div className="w-px h-8 bg-gray-200 dark:bg-gray-700" />
-                    <div className="flex flex-col items-center">
-                      <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 leading-tight">
-                        Previsione
-                      </p>
-                      <p className={clsx("font-semibold text-xl leading-tight", forecastTotal >= 0 ? "text-green-600/70 dark:text-green-400/70" : "text-red-600/70 dark:text-red-400/70")}>
-                        {forecastTotal > 0 ? '+' : ''}{formatCurrency(forecastTotal)}
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Row 2: Filter toggle + status filter */}
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setShowFilters(f => !f)}
-                  className={clsx(
-                    "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
-                    showFilters || activeFilterCount > 0
-                      ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  )}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Filtri</span>
-                  {activeFilterCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
-                      {activeFilterCount}
-                    </span>
-                  )}
-                </button>
-                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-1">
-                  <Eye className="w-4 h-4 ml-2" />
-                  <select
-                    value={filterMode}
-                    onChange={(e) => setFilterMode(e.target.value as FilterMode)}
-                    className="bg-transparent border-none text-xs sm:text-sm focus:ring-0 cursor-pointer text-gray-700 dark:text-gray-300 py-1 outline-none"
-                  >
-                    <option value="confirmed_only">Solo Confermate</option>
-                    <option value="confirmed_plus_today">Fino ad oggi</option>
-                    <option value="all">Tutte (Previsione)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 3: Filter panel (expandable) */}
-              {showFilters && (
-                <div className="flex flex-col gap-3 border-t border-gray-100 dark:border-gray-800 pt-3">
-                  {activeFilterCount > 0 && (
-                    <button
-                      onClick={() => { setFilterNegozio([]); setFilterAmbito([]); setFilterTipo([]); setFilterNote([]); }}
-                      className="self-end flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                      Azzera filtri
-                    </button>
-                  )}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Negozio</label>
-                    <MultiSelect options={negozioOptions} selected={filterNegozio} onChange={setFilterNegozio} placeholder="Tutti i negozi" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Ambito</label>
-                    <MultiSelect options={ambitoOptions} selected={filterAmbito} onChange={setFilterAmbito} placeholder="Tutti gli ambiti" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Tipo transazione</label>
-                    <MultiSelect options={tipoOptions} selected={filterTipo} onChange={setFilterTipo} placeholder="Tutti i tipi" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Note</label>
-                    <MultiSelect options={noteOptions} selected={filterNote} onChange={setFilterNote} placeholder="Tutte le note" />
-                  </div>
-                </div>
+        {/* I filtri attivi restano visibili: prima c'era solo un badge numerico. */}
+        <div className="no-bar -mx-4 flex gap-2 overflow-x-auto px-4 lg:-mx-8 lg:px-8">
+          {FILTRI.map((f) => (
+            <Chip key={f.value} active={filtro === f.value} onClick={() => setFiltro(f.value)}>
+              {f.label}
+              {f.value === "da-confermare" && o.daConfermare.length > 0 && (
+                <span className="ml-0.5 rounded-pill bg-warn-soft px-1.5 text-[10px] text-warn">
+                  {o.daConfermare.length}
+                </span>
               )}
-              </>)}
-           </div>
+            </Chip>
+          ))}
+          {catFilter.map((c) => (
+            <Chip key={c} active icon={X} onClick={() => setCatFilter((p) => p.filter((x) => x !== c))}>
+              {c}
+            </Chip>
+          ))}
+          {payerFilter.map((p) => (
+            <Chip key={p} active icon={X} onClick={() => setPayerFilter((prev) => prev.filter((x) => x !== p))}>
+              {p === "__fondo__" ? profile?.group_name || "Fondo comune" : memberById.get(p)?.name ?? "Membro"}
+            </Chip>
+          ))}
+        </div>
 
-           {/* List */}
-           {loading ? (
-             <div className="text-center py-10 text-gray-400">Caricamento...</div>
-           ) : filteredExpenses.length === 0 ? (
-             <div className="text-center py-10 text-gray-400 flex flex-col items-center gap-2">
-                 <p>Nessuna transazione trovata con questi filtri.</p>
-                 {expenses.length === 0 && (
-                     <Link href="/spese/nuova" className="text-blue-600 hover:underline">Aggiungine una</Link>
-                 )}
-             </div>
-           ) : (
-             filteredExpenses.map((expense) => {
-               // Check if it is a recurring expense (either parent or child)
-               const isRecurring = expense.ricorrente || expense.is_recurring_parent;
-               const needsConfirmation = !expense.confermata;
+        <PeriodBar />
 
-               return (
-               <div key={expense.id} className={clsx(
-                   "bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border flex flex-col gap-3 transition-shadow relative overflow-hidden",
-                   needsConfirmation ? "border-orange-200 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10" : "border-gray-100 dark:border-gray-800"
-               )}>
-                    {needsConfirmation && (
-                        <div className="absolute top-0 right-0 p-1 bg-orange-100 dark:bg-orange-900/30 rounded-bl-lg">
-                            <AlertCircle className="w-3 h-3 text-orange-500" />
-                        </div>
-                    )}
-
-                    <div className="flex justify-between items-start">
-                        <div className="flex flex-col">
-                            <span className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight">{expense.negozio}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">{expense.ambito} • {formatDate(expense.data_spesa)}</span>
-                            {expense.note_spese && <span className="text-xs text-gray-400 italic mt-1">{expense.note_spese}</span>}
-                        </div>
-                        <div className="flex flex-col items-end">
-                             <span className={clsx(
-                                 "font-bold text-lg",
-                                 expense.tipo_transazione === 'entrata' ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                             )}>
-                                 {expense.tipo_transazione === 'entrata' ? '+' : '-'} {formatCurrency(expense.importo)}
-                             </span>
-                             {isRecurring && (
-                                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-full">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Ricorrente</span>
-                                </div>
-                             )}
-                        </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100 dark:border-gray-800 border-dashed">
-                        {needsConfirmation && (
-                             <button 
-                                onClick={() => setConfirmId(expense.id!)}
-                                className="flex items-center gap-1 text-xs font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                             >
-                                <Check className="w-3 h-3" /> Conferma
-                             </button>
-                        )}
-                        
-                        <div className="flex items-center gap-1">
-                            <button 
-                                onClick={() => setEditExpense(expense)}
-                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors"
-                                title="Modifica"
-                            >
-                                <Pencil className="w-4 h-4" />
-                            </button>
-                            <button 
-                                onClick={() => setDeleteId(expense.id!)}
-                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
-                                title="Elimina"
-                            >
-                                <Trash className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-               </div>
-             )})
-           )}
-        </main>
-
-        <ConfirmModal
-          isOpen={!!deleteId}
-          onClose={() => setDeleteId(null)}
-          onConfirm={handleDelete}
-          title="Elimina Transazione"
-          message="Sei sicuro di voler eliminare questa transazione? L'operazione non può essere annullata."
-          confirmText="Elimina"
-          isDestructive
-        />
-
-        <ConfirmModal
-          isOpen={!!confirmId}
-          onClose={() => setConfirmId(null)}
-          onConfirm={handleConfirm}
-          title="Conferma Transazione"
-          message="Confermi che questa spesa ricorrente è stata effettuata?"
-          confirmText="Conferma"
-        />
-
-        {editExpense && (
-            <EditExpenseModal 
-                isOpen={!!editExpense}
-                onClose={() => setEditExpense(null)}
-                onSuccess={loadExpenses}
-                expense={editExpense}
-                scope={scope}
-            />
+        {showFilters && (
+          <div className="anim-up grid gap-3 rounded-card border border-line bg-surface p-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-muted">Categoria</label>
+              <MultiSelect options={categorie} selected={catFilter} onChange={setCatFilter} placeholder="Tutte" />
+            </div>
+            {scope === "C" && members.length > 1 && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted">Chi ha pagato</label>
+                <MultiSelect
+                  options={["__fondo__", ...members.map((m) => m.userId)]}
+                  selected={payerFilter}
+                  onChange={setPayerFilter}
+                  placeholder="Tutti"
+                  renderLabel={(id) =>
+                    id === "__fondo__"
+                      ? profile?.group_name || "Fondo comune"
+                      : memberById.get(id)?.name ?? "Membro"
+                  }
+                />
+              </div>
+            )}
+          </div>
         )}
-      </div>
+      </PageHeader>
+
+      <PageBody
+        main={
+          <>
+            {loading ? (
+              <Card className="p-4">
+                <Skeleton className="h-8 w-40" />
+                <Skeleton className="mt-4 h-[140px] w-full" />
+              </Card>
+            ) : (
+              <Card className="p-4 lg:p-5">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div>
+                    <Eyebrow>Speso nel periodo</Eyebrow>
+                    <p className="tnum mt-1 text-[28px] font-extrabold leading-none" style={{ color: "var(--neg)" }}>
+                      {formatCurrency(o.realOut)}
+                    </p>
+                    <p className="mt-1.5 text-[13px] text-muted">
+                      e incassato{" "}
+                      <strong className="tnum font-bold" style={{ color: "var(--pos)" }}>
+                        {formatCurrency(o.realIn)}
+                      </strong>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <Eyebrow>Saldo stimato a fine periodo</Eyebrow>
+                    <p
+                      className="tnum mt-1 text-base font-bold"
+                      style={{ color: o.saldoPrevisto < 0 ? "var(--neg)" : "var(--muted)" }}
+                    >{formatCurrency(o.saldoPrevisto)}</p>
+                  </div>
+                </div>
+                <Bars items={o.settimane} ariaLabel="Uscite per settimana; le settimane future sono previsioni." />
+              </Card>
+            )}
+
+            {loading ? (
+              <Card className="divide-y divide-line">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-4">
+                    <Skeleton className="h-10 w-10 rounded-md" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3.5 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </Card>
+            ) : giorni.length === 0 ? (
+              <Card>
+                {/* «Nessun risultato» solo se c'è davvero un filtro da togliere:
+                    le ricorrenze madri stanno in transactions ma non si vedono
+                    mai, e da sole facevano proporre «Azzera i filtri» a vuoto. */}
+                <EmptyState
+                  icon={Wallet}
+                  title={filtriAttivi ? "Nessun risultato" : "Nessun movimento nel periodo"}
+                  body={
+                    filtriAttivi
+                      ? "Prova a togliere qualche filtro o a cambiare periodo."
+                      : "Aggiungi la prima spesa: da lì l'app inizia a dirti quanto puoi spendere."
+                  }
+                  action={
+                    !filtriAttivi ? (
+                      <Link href="/spese/nuova">
+                        <Button variant="primary">Aggiungi spesa</Button>
+                      </Link>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          setFiltro("tutti");
+                          setQuery("");
+                          setCatFilter([]);
+                          setPayerFilter([]);
+                        }}
+                      >
+                        Azzera i filtri
+                      </Button>
+                    )
+                  }
+                />
+              </Card>
+            ) : (
+              giorni.map((g) => (
+                <Card key={g.date} className="overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-line bg-surface-2 px-4 py-2.5">
+                    <span className="text-[11.5px] font-bold uppercase tracking-wide text-faint">{g.label}</span>
+                    <span
+                      className="adv-only tnum text-xs font-bold"
+                      style={{ color: g.total < 0 ? "var(--neg)" : "var(--pos)" }}
+                    >
+                      {g.total > 0 ? "+" : ""}
+                      {formatCurrency(g.total)}
+                    </span>
+                  </div>
+                  <ul>
+                    {g.items.map((t) => (
+                      <MovimentoRow
+                        key={t.id}
+                        t={t}
+                        member={t.paid_by ? memberById.get(t.paid_by) : undefined}
+                        isMine={t.paid_by === user?.id}
+                        fondo={
+                          scope === "C" && t.paid_by === null
+                            ? profile?.group_name || "Fondo comune"
+                            : undefined
+                        }
+                        busy={busy === t.id}
+                        onConfirm={() => confirm(t)}
+                        onEdit={() => setEditing(t)}
+                        onDelete={() => setToDelete(t)}
+                        onReceipt={t.receipt_path ? () => setScontrino(t.receipt_path ?? null) : undefined}
+                      />
+                    ))}
+                  </ul>
+                </Card>
+              ))
+            )}
+          </>
+        }
+        side={
+          // Solo Avanzata: sei cifre di contabilità; in Semplice la domanda è
+          // «dove sono finiti i soldi» e la risponde la lista.
+          <Card className="adv-only p-4 lg:p-5">
+            <CardHeader title="Riepilogo" hint={periodLabel} />
+            <dl className="flex flex-col gap-3 text-sm">
+              <SumRow label="Entrate incassate" value={o.realIn} tone="pos" />
+              <SumRow label="Uscite sostenute" value={o.realOut} tone="neg" />
+              <div className="border-t border-line pt-3">
+                <SumRow label="In cassa oggi" value={o.saldoReale} strong />
+              </div>
+              <SumRow label="Ancora impegnato" value={-o.impegnato} />
+              <SumRow label="Ancora da incassare" value={o.atteso} />
+              <div className="border-t border-line pt-3">
+                <SumRow label="Stima a fine periodo" value={o.saldoPrevisto} strong />
+              </div>
+            </dl>
+          </Card>
+        }
+      />
+
+      <ReceiptViewer path={scontrino} onClose={() => setScontrino(null)} scope={scope} />
+
+      {editing && (
+        <EditExpenseModal
+          isOpen={!!editing}
+          onClose={() => setEditing(null)}
+          onSuccess={reload}
+          expense={editing}
+          scope={scope}
+        />
+      )}
+
+      <Modal
+        open={!!toDelete}
+        onClose={() => setToDelete(null)}
+        title="Eliminare questo movimento?"
+        description={
+          toDelete
+            ? `"${toDelete.negozio || toDelete.ambito}" da ${formatCurrency(Number(toDelete.importo))}. Dopo l'eliminazione avrai qualche secondo per annullare.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button onClick={() => setToDelete(null)}>Annulla</Button>
+            <Button variant="danger" icon={Trash2} loading={busy === toDelete?.id} onClick={doDelete}>
+              Elimina
+            </Button>
+          </>
+        }
+      />
     </ProtectedRoute>
+  );
+}
+
+/* ---------------- riga movimento ---------------- */
+
+function MovimentoRow({
+  t,
+  member,
+  isMine,
+  fondo,
+  busy,
+  onConfirm,
+  onEdit,
+  onDelete,
+  onReceipt,
+}: {
+  t: Spesa;
+  member?: Member;
+  isMine: boolean;
+  /** nome del fondo comune quando nessun membro ha anticipato */
+  fondo?: string;
+  busy: boolean;
+  onConfirm: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  /** presente solo se la spesa ha uno scontrino allegato */
+  onReceipt?: () => void;
+}) {
+  const entrata = t.tipo_transazione === "entrata";
+  const daConfermare = !t.confermata;
+  const futura = t.data_spesa > todayISO();
+
+  return (
+    <li className="flex min-h-[68px] items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
+      <span
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-md"
+        style={{
+          background: daConfermare ? "var(--warn-soft)" : entrata ? "var(--pos-soft)" : "var(--surface-3)",
+          color: daConfermare ? "var(--warn)" : entrata ? "var(--pos)" : "var(--muted)",
+        }}
+      >
+        {entrata ? <ArrowDownLeft className="h-4 w-4" aria-hidden /> : <ArrowUpRight className="h-4 w-4" aria-hidden />}
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{t.negozio || t.ambito || "Senza nome"}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-faint">
+          {/* senza negozio il titolo è già la categoria: non la si ripete sotto */}
+          {t.negozio && <span className="truncate">{t.ambito || "Senza categoria"}</span>}
+          {t.ricorrente && (
+            <Pill icon={Repeat}>ricorrente</Pill>
+          )}
+          {daConfermare && (
+            <Pill tone="warn" icon={AlertTriangle}>
+              {futura ? "previsto" : "da confermare"}
+            </Pill>
+          )}
+        </p>
+      </div>
+
+      {member ? (
+        <Avatar id={member.userId} name={isMine ? `${member.name} (tu)` : member.name} size={26} />
+      ) : (
+        fondo && (
+          <span
+            title={`Pagata dal fondo comune (${fondo})`}
+            className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-surface-3 text-faint"
+          >
+            <Wallet className="h-3.5 w-3.5" aria-hidden />
+            <span className="sr-only">Pagata dal fondo comune</span>
+          </span>
+        )
+      )}
+
+      <span
+        className="tnum shrink-0 text-right text-[15px] font-bold"
+        style={{ color: entrata ? "var(--pos)" : "var(--text)", opacity: daConfermare ? 0.65 : 1 }}
+      >
+        {entrata ? "+" : "−"}
+        {formatCurrency(Number(t.importo))}
+      </span>
+
+      <div className="flex shrink-0 items-center">
+        {onReceipt && (
+          <IconButton label="Guarda lo scontrino" icon={Paperclip} onClick={onReceipt} className="h-10 w-10" />
+        )}
+        {daConfermare && (
+          <IconButton label="Conferma il movimento" icon={Check} onClick={onConfirm} disabled={busy} className="text-pos" />
+        )}
+        <IconButton label="Modifica il movimento" icon={Pencil} onClick={onEdit} className="h-10 w-10" />
+        <IconButton label="Elimina il movimento" icon={Trash2} onClick={onDelete} className="h-10 w-10 hover:text-neg" />
+      </div>
+    </li>
+  );
+}
+
+function SumRow({
+  label,
+  value,
+  tone,
+  strong,
+}: {
+  label: string;
+  value: number;
+  tone?: "pos" | "neg";
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className={strong ? "font-semibold" : "text-muted"}>{label}</dt>
+      <dd
+        className={`tnum ${strong ? "text-base font-bold" : "font-semibold"}`}
+        style={tone ? { color: tone === "pos" ? "var(--pos)" : "var(--neg)" } : undefined}
+      >
+        {formatCurrency(value)}
+      </dd>
+    </div>
   );
 }

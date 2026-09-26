@@ -1,306 +1,574 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import ScopeToggle from "@/components/ui/ScopeToggle";
-import { expenseService } from "@/services/expenseService";
-import { useScope } from "@/context/ScopeContext";
-import type { Ambito, RecurringConfig } from "@/types/expenses";
-import { ArrowLeft, Calendar, Loader2, Repeat } from "lucide-react";
-import Link from "next/link";
-import clsx from "clsx";
+import {
+  Calendar,
+  Check,
+  Plus,
+  Repeat,
+  Search,
+  Tag,
+} from "lucide-react";
 import { toast } from "sonner";
 
-export default function NuovaTransazionePage() {
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import PayerPicker from "@/components/expenses/PayerPicker";
+import SplitEditor from "@/components/expenses/SplitEditor";
+import ReceiptPicker from "@/components/expenses/ReceiptPicker";
+import PageHeader from "@/components/layout/PageHeader";
+import {
+  Button,
+  Card,
+  Chip,
+  Field,
+  SegTabs,
+  Toggle,
+  inputClass,
+} from "@/components/ui/kit";
+import { MiniBar } from "@/components/ui/charts";
+import { useScope } from "@/context/ScopeContext";
+import { usePeriod } from "@/context/PeriodContext";
+import { useAuth } from "@/context/AuthContext";
+import { useMode } from "@/context/ModeContext";
+import { expenseService } from "@/services/expenseService";
+import { budgetService, STATO_LABEL, STATO_TONE, type BudgetStatus } from "@/services/budgetService";
+import { familyService, type Member, type Split } from "@/services/familyService";
+import { receiptService } from "@/services/receiptService";
+import { formatCurrency, formatDateForAPI } from "@/lib/formatUtils";
+import type { Ambito, RecurringConfig } from "@/types/expenses";
+
+type Tipo = "spesa" | "entrata";
+type Errors = Partial<Record<"importo" | "ambito", string>>;
+
+const CADENZE: { value: RecurringConfig["ricorrenza"]; label: string }[] = [
+  { value: "giornaliera", label: "Ogni giorno" },
+  { value: "settimanale", label: "Ogni settimana" },
+  { value: "mensile", label: "Ogni mese" },
+  { value: "bimestrale", label: "Ogni 2 mesi" },
+  { value: "trimestrale", label: "Ogni 3 mesi" },
+  { value: "semestrale", label: "Ogni 6 mesi" },
+  { value: "annuale", label: "Ogni anno" },
+];
+
+const GIORNI = ["L", "M", "M", "G", "V", "S", "D"];
+/** Riferimento stabile: una spesa nuova non ha quote da caricare. */
+const VUOTE: Split[] = [];
+const GIORNI_LUNGHI = ["lunedì", "martedì", "mercoledì", "giovedì", "venerdì", "sabato", "domenica"];
+
+/** Accetta "12,50" e "12.50": con type=number la virgola non arrivava mai. */
+function parseAmount(raw: string): number | null {
+  const clean = raw.replace(/\s/g, "").replace(",", ".");
+  if (!clean) return null;
+  const n = Number(clean);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+
+export default function NuovaSpesaPage() {
   const router = useRouter();
   const { scope, isInitialized } = useScope();
-  
-  const [loading, setLoading] = useState(false);
-  const [ambiti, setAmbiti] = useState<Ambito[]>([]);
-  const [negoziSuggestions, setNegoziSuggestions] = useState<string[]>([]);
-  
-  // Base Fields
-  const [tipoTransazione, setTipoTransazione] = useState<'spesa' | 'entrata'>('spesa');
+  const { range } = usePeriod();
+  const { user, profile } = useAuth();
+
+  const [tipo, setTipo] = useState<Tipo>("spesa");
   const [importo, setImporto] = useState("");
   const [ambito, setAmbito] = useState("");
   const [negozio, setNegozio] = useState("");
-  const [note, setNote] = useState("");
-  const [dataSpesa, setDataSpesa] = useState(new Date().toISOString().split('T')[0]);
+  const [nota, setNota] = useState("");
+  const [data, setData] = useState(formatDateForAPI(new Date()));
+  const [payer, setPayer] = useState<string | null>(null);
+  // elenco vuoto = parti uguali: non si scrive niente su expense_splits
+  const [splits, setSplits] = useState<Split[]>([]);
+  const [quoteValide, setQuoteValide] = useState(true);
+  // L'avviso «non fanno 100» sparisce da solo appena le quote tornano giuste.
+  useEffect(() => {
+    if (quoteValide) toast.dismiss("quote-100");
+  }, [quoteValide]);
+  // lo scontrino si carica dopo: prima serve l'id della spesa
+  const [scontrino, setScontrino] = useState<File | null>(null);
 
-  // Recurring Fields
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [ricorrenza, setRicorrenza] = useState<RecurringConfig['ricorrenza']>('mensile');
+  const [ricorrente, setRicorrente] = useState(false);
+  const [cadenza, setCadenza] = useState<RecurringConfig["ricorrenza"]>("mensile");
   const [dataFine, setDataFine] = useState("");
-  const [tipoConferma, setTipoConferma] = useState<'A' | 'M'>('M');
+  const [autoConferma, setAutoConferma] = useState(false);
   const [giorniSettimana, setGiorniSettimana] = useState<number[]>([]);
+
+  const [ambiti, setAmbiti] = useState<Ambito[]>([]);
+  const [negozi, setNegozi] = useState<string[]>([]);
+  const [buste, setBuste] = useState<BudgetStatus[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [errors, setErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
+
+  const importoRef = useRef<HTMLInputElement>(null);
+  const ambitoRef = useRef<HTMLInputElement>(null);
+
+  // In Semplice i campi facoltativi stanno dietro un tocco (DIREZIONE-A §1,
+  // regola 2): restano a vista se uno è già compilato, per non nascondere
+  // quello che l'utente ha scritto.
+  const { isSimple } = useMode();
+  const [dettagliAperti, setDettagliAperti] = useState(false);
+  const mostraDettagli =
+    !isSimple || dettagliAperti || ricorrente || !!negozio || !!nota.trim() || !!scontrino;
+
+  // Si apre la pagina per scrivere un importo: il fuoco parte da lì.
+  useEffect(() => {
+    importoRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!isInitialized) return;
-
-    const loadData = async () => {
-      const [ambitiData, negoziData] = await Promise.all([
-        expenseService.getAmbiti(scope),
-        expenseService.getNegozi(scope)
-      ]);
-      setAmbiti(ambitiData);
-      setNegoziSuggestions(negoziData);
+    let alive = true;
+    Promise.all([expenseService.getAmbiti(scope), expenseService.getNegozi(scope)])
+      .then(([a, n]) => {
+        if (!alive) return;
+        setAmbiti(a);
+        setNegozi(n);
+      })
+      .catch(console.error);
+    return () => {
+      alive = false;
     };
-    loadData();
   }, [scope, isInitialized]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (scope !== "C") {
+      setMembers([]);
+      return;
+    }
+    let alive = true;
+    familyService.getMembers().then((m) => alive && setMembers(m));
+    return () => {
+      alive = false;
+    };
+  }, [scope]);
+
+  /* Mentre scegli la categoria, quanto resta nella sua busta. */
+  useEffect(() => {
+    if (!isInitialized) return;
+    let alive = true;
+    budgetService.getStatus(range, scope).then((res) => alive && setBuste(res.data));
+    return () => {
+      alive = false;
+    };
+  }, [scope, isInitialized, range]);
+
+  const busta = useMemo(
+    () => buste.find((b) => b.categoria.toLowerCase() === ambito.trim().toLowerCase()) ?? null,
+    [buste, ambito]
+  );
+
+  const recenti = useMemo(() => ambiti.slice(0, 7).map((a) => a.name), [ambiti]);
+  const oggi = formatDateForAPI(new Date());
+  const ieri = formatDateForAPI(new Date(Date.now() - 86_400_000));
+
+  const validate = (): Errors => {
+    const e: Errors = {};
+    if (parseAmount(importo) === null) e.importo = "Inserisci un importo maggiore di zero.";
+    if (!ambito.trim()) e.ambito = "Scegli o scrivi una categoria.";
+    return e;
+  };
+
+  const submit = async (e: React.FormEvent, andNew = false) => {
     e.preventDefault();
-    if (!importo || !ambito) return;
-
-    setLoading(true);
-    try {
-      const recurringConfig : RecurringConfig | undefined = isRecurring ? {
-        ricorrenza,
-        data_inizio: dataSpesa,
-        data_fine: dataFine || null,
-        tipo_conferma: tipoConferma,
-        giorni_settimana: ricorrenza === 'settimanale' ? giorniSettimana : undefined,
-      } : undefined;
-
-      await expenseService.createExpense({
-        importo: parseFloat(importo.replace(',', '.')),
-        ambito,
-        negozio,
-        note_spese: note,
-        data_spesa: dataSpesa,
-        tipo_transazione: tipoTransazione,
-        tipo_spesa: scope, 
-        ricorrente: isRecurring,
-        confermata: true,
-        is_recurring_parent: isRecurring, // Logic: if creating recurring, mark as parent
-        recurring_config: recurringConfig
+    const found = validate();
+    setErrors(found);
+    if (Object.keys(found).length) {
+      // il focus va sul primo campo non valido, non solo un messaggio in cima
+      (found.importo ? importoRef : ambitoRef).current?.focus();
+      return;
+    }
+    if (!quoteValide) {
+      toast.error("Le quote non fanno 100%", {
+        id: "quote-100",
+        description: "Correggi le percentuali prima di salvare.",
       });
-      
-      // Reset fields
-      setImporto("");
-      setAmbito("");
-      setNegozio("");
-      setNote("");
-      setDataSpesa(new Date().toISOString().split('T')[0]);
-      setIsRecurring(false);
-      setRicorrenza('mensile');
-      setDataFine("");
-      setTipoConferma('M');
-      setGiorniSettimana([]);
-      
-      toast.success("Transazione salvata con successo!");
-    } catch (error) {
-      console.error(error);
-      toast.error('Errore nel salvataggio');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const config: RecurringConfig | undefined = ricorrente
+        ? {
+            ricorrenza: cadenza,
+            data_inizio: data,
+            data_fine: dataFine || null,
+            tipo_conferma: autoConferma ? "A" : "M",
+            giorni_settimana: cadenza === "settimanale" ? giorniSettimana : undefined,
+          }
+        : undefined;
+
+      const creata = await expenseService.createExpense({
+        importo: parseAmount(importo)!,
+        ambito: ambito.trim(),
+        negozio: negozio.trim(),
+        note_spese: nota.trim(),
+        data_spesa: data,
+        tipo_transazione: tipo,
+        tipo_spesa: scope,
+        paid_by: scope === "C" ? payer : undefined,
+        ricorrente,
+        confermata: true,
+        is_recurring_parent: ricorrente,
+        recurring_config: config,
+      });
+
+      // Le quote si scrivono dopo, sull'id appena creato. Se falliscono
+      // la spesa resta valida e torna in parti uguali: lo diciamo, non
+      // si perde niente.
+      if (scope === "C" && splits.length > 0 && creata?.id) {
+        const esito = await familyService.setSplits(creata.id, splits);
+        if (!esito.ok) {
+          toast.warning("Spesa salvata, quote no", {
+            description: esito.needsMigration
+              ? "Le quote personalizzate non sono ancora attive sul database: la spesa si divide in parti uguali."
+              : (esito.error ?? "La spesa si divide in parti uguali."),
+          });
+        }
+      }
+
+      // Stessa logica per lo scontrino: la spesa è già salva, l'allegato
+      // è un di più che non deve poterla far fallire.
+      if (scontrino && creata?.id) {
+        const esito = await receiptService.uploadAndAttach(scontrino, scope, creata.id);
+        if (!esito.ok) {
+          toast.warning("Spesa salvata, scontrino no", {
+            description: esito.needsMigration
+              ? "Gli scontrini non sono ancora attivi sul database."
+              : (esito.error ?? "Riprova ad allegarlo dalla modifica."),
+          });
+        }
+      }
+
+      toast.success(ricorrente ? "Ricorrenza salvata" : "Movimento salvato", {
+        description: `${tipo === "spesa" ? "−" : "+"}${formatCurrency(parseAmount(importo)!)} · ${ambito.trim()}`,
+        action: { label: "Vedi movimenti", onClick: () => router.push("/spese") },
+      });
+
+      if (andNew) {
+        setImporto("");
+        setNegozio("");
+        setNota("");
+        setScontrino(null);
+        setErrors({});
+        importoRef.current?.focus();
+      } else {
+        router.push("/spese");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Salvataggio non riuscito", {
+        description: "Controlla la connessione e riprova.",
+      });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  const amountColor = tipo === "spesa" ? "var(--neg)" : "var(--pos)";
+
   return (
     <ProtectedRoute>
-      <div className={clsx("min-h-screen pb-20 transition-colors duration-300", scope === 'P' ? "bg-gray-50/90 dark:bg-gray-950/90" : "bg-gray-50 dark:bg-gray-950")}>
-        {/* Header removed - using global Header */}
+      <PageHeader
+        title={ricorrente ? "Nuova spesa ricorrente" : tipo === "spesa" ? "Aggiungi una spesa" : "Aggiungi un'entrata"}
+        subtitle={scope === "C" ? profile?.group_name || "Portafoglio condiviso" : "Portafoglio personale"}
+        backHref="/spese"
+      />
 
-        <main className="p-4 max-w-lg mx-auto">
-          
-          <h2 className={clsx("text-lg font-bold mb-4 flex items-center gap-2", scope === 'P' ? "text-indigo-800 dark:text-indigo-300" : "text-gray-800 dark:text-gray-100")}>
-             Nuova Transazione ({scope === 'P' ? 'Personale' : 'Condivisa'})
-          </h2>
+      <form onSubmit={(e) => submit(e)} noValidate className="page px-4 py-4 lg:px-8 lg:py-6">
+        <div className="mx-auto flex max-w-xl flex-col gap-4">
+          <SegTabs
+            ariaLabel="Tipo di movimento"
+            value={tipo}
+            onChange={(v) => setTipo(v)}
+            options={[
+              { value: "spesa", label: "Ho speso", tone: "neg" },
+              { value: "entrata", label: "Ho incassato", tone: "pos" },
+            ]}
+          />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-             {/* Toggle Tipo */}
-             <div className="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-lg">
-                <button type="button" onClick={() => setTipoTransazione('spesa')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'spesa' ? "bg-white dark:bg-gray-700 text-red-600 dark:text-red-400 shadow-sm" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200")}>Uscita</button>
-                <button type="button" onClick={() => setTipoTransazione('entrata')} className={clsx("flex-1 py-2 text-sm font-medium rounded-md transition-all", tipoTransazione === 'entrata' ? "bg-white dark:bg-gray-700 text-green-600 dark:text-green-400 shadow-sm" : "text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200")}>Entrata</button>
-             </div>
-
-            {/* Importo */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Importo (€)
-              </label>
+          {/* ---------- Importo ---------- */}
+          <Card className="px-5 py-7 text-center">
+            <label htmlFor="importo" className="text-[11px] font-bold uppercase tracking-[0.07em] text-faint">
+              Quanto
+            </label>
+            <div className="mt-2 flex items-baseline justify-center gap-1">
+              <span className="text-2xl font-semibold text-faint" aria-hidden>€</span>
               <input
-                type="number"
-                step="0.01"
-                required
+                id="importo"
+                ref={importoRef}
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
                 value={importo}
                 onChange={(e) => setImporto(e.target.value)}
-                placeholder="0.00"
-                className={clsx(
-                    "w-full px-4 py-3 text-2xl font-bold text-gray-800 dark:text-gray-100 border-2 rounded-xl focus:outline-none bg-white dark:bg-gray-800 placeholder:text-gray-400",
-                    scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500" : "border-gray-200 dark:border-gray-700 focus:border-blue-500"
-                )}
+                onBlur={() => setErrors((p) => ({ ...p, importo: validate().importo }))}
+                placeholder="0,00"
+                aria-invalid={!!errors.importo}
+                aria-describedby={errors.importo ? "err-importo" : undefined}
+                className="tnum min-w-0 max-w-[260px] bg-transparent text-left text-[46px] font-extrabold tracking-tight outline-none placeholder:text-faint/50"
+                // largo quanto la cifra: centrato su 260px lasciava il «€» lontano dal numero
+                style={{ color: amountColor, width: `${Math.max(4, importo.length + 0.5)}ch` }}
               />
             </div>
+            {errors.importo && (
+              <p id="err-importo" role="alert" className="mt-2 text-xs font-medium text-neg">
+                {errors.importo}
+              </p>
+            )}
+          </Card>
 
-            {/* Data */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data</label>
+          {/* ---------- Categoria ---------- */}
+          <Field
+            label="Per cosa"
+            required
+            htmlFor="ambito"
+            error={errors.ambito}
+            help={
+              busta ? (
+                <span className="flex items-center gap-2">
+                  <MiniBar
+                    percent={busta.percentuale}
+                    tone={STATO_TONE[busta.stato]}
+                    width={22}
+                    thickness={5}
+                    ariaLabel={`Budget ${busta.categoria}: ${STATO_LABEL[busta.stato]}`}
+                  />
+                  <span>
+                    Budget {busta.categoria}:{" "}
+                    <strong className="tnum font-semibold text-muted">
+                      {busta.residuo >= 0
+                        ? `restano ${formatCurrency(busta.residuo)}`
+                        : `superato di ${formatCurrency(-busta.residuo)}`}
+                    </strong>{" "}
+                    di {formatCurrency(busta.tetto)}
+                  </span>
+                </span>
+              ) : (
+                "Scegli fra quelle che usi già o scrivine una nuova."
+              )
+            }
+          >
+            {recenti.length > 0 && (
+              <div className="no-bar -mx-4 mb-1 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:px-0">
+                {recenti.map((c) => (
+                  <Chip key={c} active={ambito === c} icon={Tag} onClick={() => { setAmbito(c); setErrors((p) => ({ ...p, ambito: undefined })); }}>
+                    {c}
+                  </Chip>
+                ))}
+              </div>
+            )}
+            <input
+              id="ambito"
+              ref={ambitoRef}
+              list="lista-ambiti"
+              value={ambito}
+              onChange={(e) => setAmbito(e.target.value)}
+              onBlur={() => setErrors((p) => ({ ...p, ambito: validate().ambito }))}
+              placeholder="Es. Spesa, Casa, Trasporti…"
+              aria-invalid={!!errors.ambito}
+              className={inputClass}
+            />
+            <datalist id="lista-ambiti">
+              {ambiti.map((a) => (
+                <option key={a.code} value={a.name} />
+              ))}
+            </datalist>
+          </Field>
+
+          {/* ---------- Chi ha pagato ---------- */}
+          {scope === "C" && profile?.group_id && (
+            <PayerPicker
+              value={payer}
+              onChange={setPayer}
+              members={members}
+              groupName={profile.group_name}
+              date={data}
+              groupId={profile.group_id}
+              currentUserId={user?.id}
+            />
+          )}
+
+          {/* ---------- Come si divide ----------
+              Solo sugli anticipi: una spesa del fondo comune è già di
+              tutti e non entra nel conguaglio, dividerla non cambierebbe
+              niente. */}
+          {scope === "C" && profile?.group_id && payer !== null && (
+            <SplitEditor
+              members={members}
+              importo={parseAmount(importo) ?? 0}
+              iniziali={VUOTE}
+              onValiditaChange={setQuoteValide}
+              onChange={setSplits}
+            />
+          )}
+
+          {/* ---------- Quando ---------- */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Quando" htmlFor="data">
+              <div className="mb-1 flex gap-2">
+                <Chip active={data === oggi} onClick={() => setData(oggi)}>Oggi</Chip>
+                <Chip active={data === ieri} onClick={() => setData(ieri)}>Ieri</Chip>
+              </div>
               <div className="relative">
                 <input
+                  id="data"
                   type="date"
-                  required
-                  value={dataSpesa}
-                  onChange={(e) => setDataSpesa(e.target.value)}
-                  className={clsx(
-                    "w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800",
-                    scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400"
-                  )}
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  className={inputClass}
                 />
-                <Calendar className="absolute right-4 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
+                <Calendar className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" aria-hidden />
               </div>
-            </div>
+            </Field>
+          </div>
 
-            {/* Ambito */}
-            <div>
-               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambito</label>
-               <input 
-                 type="text"
-                 list="ambiti-list-new"
-                 required 
-                 value={ambito} 
-                 onChange={(e) => setAmbito(e.target.value)} 
-                 className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")}
-                 placeholder="Seleziona o scrivi nuovo..."
-               />
-               <datalist id="ambiti-list-new">
-                 {ambiti.map(a => <option key={a.code} value={a.name} />)}
-               </datalist>
-            </div>
-
-            {/* Negozio */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Negozio / Beneficiario</label>
-              <input type="text" list="negozi-list" value={negozio} onChange={(e) => setNegozio(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")} />
-              <datalist id="negozi-list">{negoziSuggestions.map((n, i) => <option key={i} value={n} />)}</datalist>
-            </div>
-
-            {/* Note */}
-            <div>
-               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Note (Opzionale)</label>
-               <textarea value={note} onChange={(e) => setNote(e.target.value)} className={clsx("w-full px-4 py-3 border rounded-xl focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100 placeholder:text-gray-400")} rows={2} />
-            </div>
-
-            {/* Recurring Toggle */}
-            <div className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-               <div className="flex items-center justify-between">
-                   <div className="flex items-center gap-2">
-                       <Repeat className="w-5 h-5 text-orange-600" />
-                       <span className="font-semibold text-gray-700 dark:text-gray-100">Ricorrente</span>
-                   </div>
-                   <ToggleSwitch checked={isRecurring} onChange={setIsRecurring} />
-               </div>
-
-               {isRecurring && (
-                   <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4 animate-in fade-in slide-in-from-top-2">
-                       <div>
-                            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1 ">Frequenza</label>
-                            <select value={ricorrenza} onChange={(e) => setRicorrenza(e.target.value as any)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100")}>
-                                <option value="giornaliera">Ogni Giorno</option>
-                                <option value="settimanale">Ogni Settimana</option>
-                                <option value="mensile">Ogni Mese</option>
-                                <option value="bimestrale">Ogni 2 Mesi</option>
-                                <option value="trimestrale">Ogni 3 Mesi</option>
-                                <option value="semestrale">Ogni 6 Mesi</option>
-                                <option value="annuale">Ogni Anno</option>
-                            </select>
-                        </div>
-                        
-                        {ricorrenza === 'settimanale' && (
-                           <div>
-                               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Giorni della Settimana</label>
-                               <div className="flex flex-wrap gap-2">
-                                  {['L','M','M','G','V','S','D'].map((day, idx) => {
-                                      // 1 = Monday, 7 = Sunday
-                                      const dayValue = idx + 1; 
-                                      const isSelected = giorniSettimana.includes(dayValue);
-                                      return (
-                                          <button
-                                            key={idx}
-                                            type="button"
-                                            onClick={() => {
-                                                if(isSelected) setGiorniSettimana(giorniSettimana.filter(d => d !== dayValue));
-                                                else setGiorniSettimana([...giorniSettimana, dayValue].sort());
-                                            }}
-                                            className={clsx(
-                                                "w-8 h-8 rounded-full text-sm font-semibold flex items-center justify-center transition-colors",
-                                                isSelected ? "bg-orange-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 border border-transparent dark:border-gray-700"
-                                            )}
-                                          >
-                                              {day}
-                                          </button>
-                                      );
-                                  })}
-                               </div>
-                               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Seleziona i giorni (es. Lun-Ven). Se vuoto, usa la data di inizio.</p>
-                           </div>
-                        )}
-
-                        <div>
-                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Fine (Opzionale)</label>
-                             <input type="date" value={dataFine} onChange={(e) => setDataFine(e.target.value)} className={clsx("w-full px-3 py-2 border rounded-lg focus:outline-none bg-white dark:bg-gray-800", scope === 'P' ? "border-indigo-100 dark:border-indigo-900 focus:border-indigo-500 text-gray-700 dark:text-gray-100" : "border-gray-200 dark:border-gray-700 focus:border-blue-500 text-gray-700 dark:text-gray-100")} />
-                        </div>
-                        <div>
-                             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Conferma Generazione</label>
-                             <div className="flex gap-4">
-                                 <label className="flex items-center gap-2 cursor-pointer">
-                                     <input type="radio" checked={tipoConferma === 'M'} onChange={() => setTipoConferma('M')} className="w-4 h-4 text-blue-600" />
-                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700 dark:text-gray-100" : "text-gray-500 dark:text-gray-400")}>Manuale</span>
-                                 </label>
-                                 <label className="flex items-center gap-2 cursor-pointer">
-                                     <input type="radio" checked={tipoConferma === 'A'} onChange={() => setTipoConferma('A')} className="w-4 h-4 text-blue-600" />
-                                     <span className={clsx("text-sm", scope === 'P' ? "text-gray-700 dark:text-gray-100" : "text-gray-500 dark:text-gray-400")}>Automatica</span>
-                                 </label>
-                             </div>
-                        </div>
-                   </div>
-               )}
-            </div>
-
-            {/* Submit */}
+          {isSimple && !mostraDettagli && (
             <button
-              type="submit"
-              disabled={loading}
-              className={clsx(
-                "w-full py-4 text-white font-semibold rounded-xl transition-all shadow-md active:scale-95 flex justify-center items-center mt-6",
-                loading ? "opacity-70 bg-gray-400" : (
-                    isRecurring 
-                        ? "bg-orange-600 hover:bg-orange-700 shadow-orange-200"
-                        : tipoTransazione === 'spesa' 
-                            ? "bg-red-600 hover:bg-red-700 shadow-red-200" 
-                            : "bg-green-600 hover:bg-green-700 shadow-green-200"
-                )
-              )}
+              type="button"
+              onClick={() => setDettagliAperti(true)}
+              aria-expanded={false}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-dashed border-line text-sm font-semibold text-accent hover:bg-surface-2"
             >
-              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : isRecurring ? "Salva Ricorrenza" : "Salva Transazione"}
+              <Plus className="h-4 w-4" aria-hidden />
+              Altri dettagli
+              <span className="font-normal text-faint">· dove, si ripete, scontrino, nota</span>
             </button>
+          )}
 
-          </form>
-        </main>
-      </div>
+          {mostraDettagli && (
+          <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Dove" htmlFor="negozio" help="Negozio o beneficiario.">
+              <div className="relative">
+                <input
+                  id="negozio"
+                  list="lista-negozi"
+                  value={negozio}
+                  onChange={(e) => setNegozio(e.target.value)}
+                  placeholder="Es. Esselunga"
+                  className={`${inputClass} pl-10`}
+                />
+                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" aria-hidden />
+              </div>
+              <datalist id="lista-negozi">
+                {negozi.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </Field>
+          </div>
+
+          {/* ---------- Ricorrenza ---------- */}
+          <Card className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-surface-3 text-muted">
+                  <Repeat className="h-4 w-4" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold">Si ripete</p>
+                  <p className="text-xs text-faint">Resta previsto finché non lo confermi.</p>
+                </div>
+              </div>
+              <Toggle checked={ricorrente} onChange={setRicorrente} label="Movimento ricorrente" />
+            </div>
+
+            {ricorrente && (
+              <div className="anim-up mt-4 flex flex-col gap-4 border-t border-line pt-4">
+                <Field label="Frequenza" htmlFor="cadenza">
+                  <select
+                    id="cadenza"
+                    value={cadenza}
+                    onChange={(e) => setCadenza(e.target.value as RecurringConfig["ricorrenza"])}
+                    className={inputClass}
+                  >
+                    {CADENZE.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </Field>
+
+                {cadenza === "settimanale" && (
+                  <Field label="In quali giorni" help="Se non ne scegli nessuno usiamo il giorno della data di inizio.">
+                    <div className="flex flex-wrap gap-2">
+                      {GIORNI.map((g, i) => {
+                        const value = i + 1;
+                        const on = giorniSettimana.includes(value);
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            aria-pressed={on}
+                            aria-label={GIORNI_LUNGHI[i]}
+                            onClick={() =>
+                              setGiorniSettimana((prev) =>
+                                on ? prev.filter((d) => d !== value) : [...prev, value].sort()
+                              )
+                            }
+                            className={`grid h-11 w-11 place-items-center rounded-full text-sm font-bold transition-colors ${
+                              on ? "bg-accent text-accent-ink" : "bg-surface-3 text-muted hover:text-ink"
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Fine" htmlFor="fine" help="Lascia vuoto per non farla finire.">
+                    <input id="fine" type="date" value={dataFine} onChange={(e) => setDataFine(e.target.value)} className={inputClass} />
+                  </Field>
+                  <Field label="Conferma" help={autoConferma ? "Entra subito nel saldo reale." : "Dovrai confermarla ogni volta."}>
+                    <div className="flex min-h-12 items-center justify-between rounded-md border border-line bg-surface px-3.5">
+                      <span className="text-sm">{autoConferma ? "Automatica" : "Manuale"}</span>
+                      <Toggle checked={autoConferma} onChange={setAutoConferma} label="Conferma automatica" />
+                    </div>
+                  </Field>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* ---------- Scontrino ---------- */}
+          <ReceiptPicker value={scontrino} onChange={setScontrino} scope={scope} />
+
+          {/* ---------- Nota ---------- */}
+          <Field label="Nota" htmlFor="nota" help="Facoltativa.">
+            <textarea
+              id="nota"
+              rows={2}
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              placeholder="Aggiungi un dettaglio…"
+              className={`${inputClass} min-h-20 py-3`}
+            />
+          </Field>
+          </>
+          )}
+
+          {/* ---------- Azioni ---------- */}
+          <div
+            className="sticky bottom-0 -mx-4 mt-2 border-t border-line bg-surface/92 px-4 py-3 backdrop-blur-xl lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:backdrop-blur-none"
+            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+          >
+            <Button type="submit" variant="primary" size="lg" icon={Check} loading={saving} className="w-full">
+              {ricorrente ? "Salva ricorrenza" : "Salva"}
+            </Button>
+            <div className="mt-2 flex justify-center gap-4 text-xs">
+              <button type="button" onClick={(e) => submit(e, true)} className="min-h-10 px-2 font-semibold text-accent">
+                Salva e aggiungine un&apos;altra
+              </button>
+              <button type="button" onClick={() => router.push("/spese")} className="min-h-10 px-2 text-faint">
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
     </ProtectedRoute>
   );
-}
-
-function ToggleSwitch({ checked, onChange }: { checked: boolean, onChange: (v: boolean) => void }) {
-    return (
-        <button 
-            type="button"
-            onClick={() => onChange(!checked)}
-            className={clsx(
-                "w-12 h-6 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none",
-                checked ? "bg-green-500" : "bg-gray-300"
-            )}
-        >
-            <div 
-                className={clsx(
-                    "w-4 h-4 rounded-full bg-white absolute top-1 transition-transform duration-200 ease-in-out shadow-sm",
-                    checked ? "left-7" : "left-1"
-                )}
-            />
-        </button>
-    );
 }

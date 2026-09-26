@@ -66,17 +66,17 @@ export default function ResetPasswordPage() {
     return (
       <Layout>
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
-            <XCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+          <div className="bg-neg-soft p-4 rounded-full">
+            <XCircle className="w-8 h-8 text-neg" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Link non valido o scaduto</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">Link non valido o scaduto</h1>
+          <p className="text-muted text-sm">
             {linkError}
             <br />Richiedi un nuovo link dalla pagina di login.
           </p>
           <button
             onClick={() => router.push("/login")}
-            className="mt-4 text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium"
+            className="mt-4 text-accent hover:underline text-sm font-medium"
           >
             Torna al login
           </button>
@@ -89,11 +89,11 @@ export default function ResetPasswordPage() {
     return (
       <Layout>
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full">
-            <ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
+          <div className="bg-pos-soft p-4 rounded-full">
+            <ShieldCheck className="w-8 h-8 text-pos" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Password aggiornata!</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <h1 className="text-xl font-bold text-ink">Password aggiornata!</h1>
+          <p className="text-muted text-sm">
             La tua password è stata salvata con successo.
             <br />Verrai reindirizzato al login tra pochi secondi…
           </p>
@@ -105,21 +105,21 @@ export default function ResetPasswordPage() {
   return (
     <Layout>
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Nuova password</h1>
-        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-ink">Nuova password</h1>
+        <p className="text-muted text-sm mt-1">
           Scegli una nuova password per il tuo account.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-200">
+        <div className="bg-neg-soft text-neg p-3 rounded-md text-sm border border-neg">
           {error}
         </div>
       )}
 
       <form onSubmit={handleReset} className="space-y-4">
         <div>
-          <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="new-password" className="block text-sm font-medium text-muted mb-1">
             Nuova password
           </label>
           <div className="relative">
@@ -131,13 +131,13 @@ export default function ResetPasswordPage() {
               minLength={8}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white dark:bg-gray-900 pr-10"
+              className="w-full px-3 py-2 border border-line rounded-md focus:outline-none focus:border-accent text-ink dark:bg-surface pr-10"
               placeholder="Minimo 8 caratteri"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-muted dark:hover:text-muted"
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
         </div>
 
         <div>
-          <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label htmlFor="confirm-password" className="block text-sm font-medium text-muted mb-1">
             Conferma password
           </label>
           <div className="relative">
@@ -156,35 +156,35 @@ export default function ResetPasswordPage() {
               minLength={8}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-gray-900 dark:text-white dark:bg-gray-900 pr-10 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 text-ink dark:bg-surface pr-10 ${
                 confirmTouched && !passwordsMatch
-                  ? "border-red-500 focus:ring-red-500"
+                  ? "border-neg focus:ring-neg"
                   : confirmTouched && passwordsMatch
-                  ? "border-green-500 focus:ring-green-500"
-                  : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+                  ? "border-pos focus:ring-pos"
+                  : "border-line focus:border-accent"
               }`}
               placeholder="Ripeti la nuova password"
             />
             <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted hover:text-muted dark:hover:text-muted"
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
           {confirmTouched && !passwordsMatch && (
-            <p className="text-xs text-red-500 mt-1">Le password non coincidono.</p>
+            <p className="text-xs text-neg mt-1">Le password non coincidono.</p>
           )}
           {confirmTouched && passwordsMatch && (
-            <p className="text-xs text-green-500 mt-1">Le password coincidono.</p>
+            <p className="text-xs text-pos mt-1">Le password coincidono.</p>
           )}
         </div>
 
         <button
           type="submit"
           disabled={loading || (confirmTouched && !passwordsMatch)}
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 flex justify-center items-center gap-2"
+          className="w-full bg-accent text-white py-2 px-4 rounded-md hover:brightness-110 focus:outline-none focus:border-accent focus:ring-offset-2 disabled:opacity-50 flex justify-center items-center gap-2"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salva nuova password"}
         </button>
@@ -195,8 +195,8 @@ export default function ResetPasswordPage() {
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50 dark:bg-gray-900">
-      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 space-y-6">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-bg">
+      <div className="w-full max-w-md bg-surface rounded-lg shadow-md p-6 space-y-6">
         {children}
       </div>
     </div>

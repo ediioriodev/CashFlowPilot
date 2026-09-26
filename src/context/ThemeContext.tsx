@@ -1,92 +1,86 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
 import { userService } from "@/services/userService";
 import { useAuth } from "./AuthContext";
 
 type ThemeContextType = {
   isDarkMode: boolean;
   toggleTheme: () => Promise<void>;
+  setTheme: (dark: boolean) => Promise<void>;
 };
 
 const ThemeContext = createContext<ThemeContextType>({
   isDarkMode: false,
   toggleTheme: async () => {},
+  setTheme: async () => {},
 });
+
+/* Il tema vive nel DOM (classe .dark applicata dallo script inline in
+   layout.tsx, prima della prima pittura). React lo legge come stato
+   esterno invece di duplicarlo: niente lampo bianco, niente doppia verità. */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+const getSnapshot = () => document.documentElement.classList.contains("dark");
+const getServerSnapshot = () => false;
+
+function applyTheme(dark: boolean) {
+  document.documentElement.classList.toggle("dark", dark);
+  try {
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  } catch {
+    /* storage non disponibile: il tema resta valido per la sessione */
+  }
+}
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const isDarkMode = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
+  // Se l'utente ha salvato una preferenza a DB, quella vince su quella locale.
   useEffect(() => {
-    // 1. Initial Load: Check Local Storage or System Preference
-    const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    
-    // Apply immediately to avoid flash if possible (though in useEffect it runs after paint)
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
-      setIsDarkMode(true);
-      document.documentElement.classList.add("dark");
-    } else {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove("dark");
-    }
-    setMounted(true);
-  }, []);
-
-  // 2. Sync with User Settings (DB) when logged in
-  useEffect(() => {
-    if (user && mounted) {
-      userService.getSettings().then((settings) => {
-        // If DB differs from local state, trust DB
-        if (settings.dark_mode !== undefined && settings.dark_mode !== isDarkMode) {
-             const userPrefersDark = settings.dark_mode;
-             setIsDarkMode(userPrefersDark);
-             if (userPrefersDark) {
-                document.documentElement.classList.add("dark");
-                localStorage.setItem("theme", "dark");
-             } else {
-                document.documentElement.classList.remove("dark");
-                localStorage.setItem("theme", "light");
-             }
+    if (!user?.id) return;
+    let alive = true;
+    userService
+      .getSettings()
+      .then((s) => {
+        if (!alive || typeof s.dark_mode !== "boolean") return;
+        if (s.dark_mode !== document.documentElement.classList.contains("dark")) {
+          applyTheme(s.dark_mode);
         }
+      })
+      .catch(() => {
+        /* nessuna preferenza remota: resta quella locale */
       });
-    }
-  }, [user, mounted]);
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
 
-  const toggleTheme = async () => {
-    // Optimistic Update
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    
-    // Apply immediately to DOM
-    if (newMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-
-    // Persist to DB if logged in (Async)
-    if (user) {
-      try {
-        await userService.updateSettings({ dark_mode: newMode });
-      } catch (error) {
-        console.error("Failed to save theme preference:", error);
+  const setTheme = useCallback(
+    async (dark: boolean) => {
+      applyTheme(dark);
+      if (user) {
+        try {
+          await userService.updateSettings({ dark_mode: dark });
+        } catch (error) {
+          console.error("Impossibile salvare la preferenza tema:", error);
+        }
       }
-    }
-  };
+    },
+    [user]
+  );
 
-  if (!mounted) {
-      // Prevent FOUC? Or just return null/loader
-      // Returning children allows static shell but theme might be wrong
-      return null; 
-  }
+  const toggleTheme = useCallback(
+    () => setTheme(!document.documentElement.classList.contains("dark")),
+    [setTheme]
+  );
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

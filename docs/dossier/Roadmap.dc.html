@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Tutte le dipendenze sono locali: la pagina si apre con doppio clic (file://),
+     senza server, senza npx, senza connessione. L'ordine conta: React, la
+     configurazione e i dati devono esistere prima che support.js avvii la vista.
+     Chi aggiunge uno <script src="./…"> lo aggiunga qui: crea-file-unico.js
+     inlina esattamente i tag di questo <head>. -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./dossier.config.js"></script>
+<script src="./roadmap.data.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #f4f2ee; }
+  body { color: #23211e; font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  [data-tema] {
+    --bg:#f4f2ee; --card:#fffefb; --ink:#23211e; --onink:#f6f4f0; --body:#4a463f;
+    --ink2:#6e6a62; --ink3:#8a857c; --ink4:#a9a39a;
+    --bd:#e4e0d8; --bd2:#ece8e0; --rule:#ddd8ce;
+    --chip:#e9e5dd; --tag:#efece5; --thead:#faf8f4; --track:#f7f5f1;
+  }
+  [data-tema="dark"] {
+    --bg:#15171a; --card:#1d2024; --ink:#eceef1; --onink:#15171a; --body:#c4c8ce;
+    --ink2:#a2a8b0; --ink3:#868d96; --ink4:#6d737b;
+    --bd:#2c3036; --bd2:#272b30; --rule:#2c3036;
+    --chip:#23272c; --tag:#272c32; --thead:#20242a; --track:#20242a;
+  }
+  a { color: #2f66b3; text-decoration: none; }
+  a:hover { color: #21508f; text-decoration: underline; }
+  [data-tema="dark"] a { color: #8fbcf0; }
+  [data-tema="dark"] a:hover { color: #c3dcf9; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    [data-noprint] { display: none !important; }
+    [data-tema], [data-tema="dark"] {
+      --bg:#ffffff; --card:#ffffff; --ink:#23211e; --onink:#f6f4f0; --body:#4a463f;
+      --ink2:#6e6a62; --ink3:#8a857c; --ink4:#a9a39a;
+      --bd:#e4e0d8; --bd2:#ece8e0; --rule:#ddd8ce;
+      --chip:#e9e5dd; --tag:#efece5; --thead:#faf8f4; --track:#f7f5f1;
+    }
+    body { background: #ffffff !important; }
+    section { break-before: page; page-break-before: always; break-inside: avoid; }
+    section:first-of-type { break-before: auto; page-break-before: auto; }
+    section > div, section > div > div { break-inside: avoid; page-break-inside: avoid; }
+    [data-blocco] { break-inside: avoid; page-break-inside: avoid; }
+    /* I tag di filtro non si stampano; se però un filtro è attivo, al loro posto
+       compare quale, altrimenti la pagina mostra un elenco parziale senza dirlo. */
+    [data-filtro=""] { display: none !important; }
+    [data-filtro]:not([data-filtro=""]) > * { display: none !important; }
+    /* La compressione è un comodo di lettura: la stampa contiene tutto. */
+    [data-corpo] { display: block !important; }
+    [data-chevron] { display: none !important; }
+    [data-filtro]:not([data-filtro=""])::after {
+      content: "Filtro attivo — " attr(data-filtro);
+      font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--ink4);
+    }
+  }
+</style>
+</helmet>
+
+<div data-tema="{{ tema }}" style="background:var(--bg);color:var(--ink);min-height:100vh">
+<div style="max-width:1320px;margin:0 auto;padding:28px 24px 72px">
+
+  <header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid var(--rule)">
+    <div style="min-width:280px;flex:1 1 420px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+        <sc-if value="{{ haLogo }}" hint-placeholder-val="{{ true }}">
+          <span style="display:inline-flex;padding:{{ logoPad }};background:{{ logoBg }};border-radius:6px"><img src="{{ logoSrc }}" alt="{{ logoAlt }}" style="display:block;height:{{ logoAltezza }}px;width:auto" /></span>
+        </sc-if>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">Roadmap di progetto · {{ p.codice }}</span>
+      </div>
+      <h1 style="margin:0 0 4px;font-size:30px;font-weight:600;letter-spacing:-0.01em;line-height:1.15;text-wrap:pretty">{{ p.nome }}</h1>
+      <div style="font-size:14px;color:var(--ink2)">{{ p.cliente }} · {{ p.metodologia }} · PM {{ p.owner }}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+      <div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center">
+        <div style="display:flex;gap:6px;padding:4px;background:var(--chip);border-radius:8px">
+          <sc-for list="{{ modi }}" as="m" hint-placeholder-count="2">
+            <button onClick="{{ m.onClick }}" style="border:0;cursor:pointer;padding:7px 16px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;background:{{ m.bg }};color:{{ m.fg }};box-shadow:{{ m.shadow }}">{{ m.label }}</button>
+          </sc-for>
+        </div>
+        <button onClick="{{ toggleTema }}" title="Tema chiaro / scuro" style="cursor:pointer;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:8px;background:var(--card);color:var(--ink2);border:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase">{{ temaLabel }}</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end">
+        <sc-if value="{{ haVersioni }}" hint-placeholder-val="{{ true }}">
+          <label data-noprint="1" style="display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)">Emissione
+            <select value="{{ verSel }}" onChange="{{ cambiaVersione }}" style="cursor:pointer;padding:6px 9px;border-radius:7px;background:var(--card);color:var(--ink);border:1px solid var(--bd);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0;text-transform:none">
+              <sc-for list="{{ versioni }}" as="v" hint-placeholder-count="3">
+                <option value="{{ v.valore }}">{{ v.label }}</option>
+              </sc-for>
+            </select>
+          </label>
+        </sc-if>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3);text-align:right">Agg. {{ p.aggiornatoIl }} · fonte: {{ p.fonte }}</div>
+      </div>
+    </div>
+  </header>
+
+  <sc-if value="{{ nonUltima }}">
+    <div style="margin:16px 0 0;padding:11px 16px;background:var(--card);border:1px solid var(--bd);border-left:3px solid #cf9531;border-radius:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;color:var(--body)">Stai leggendo l'emissione del <strong>{{ versioneLabel }}</strong>: non è l'ultima ({{ ultimaLabel }}).</span>
+      <button data-noprint="1" onClick="{{ vaiUltima }}" style="cursor:pointer;padding:7px 13px;border-radius:7px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Vai all'ultima</button>
+    </div>
+  </sc-if>
+
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin:18px 0 26px">
+    <nav data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+        <button onClick="{{ t.onClick }}" style="cursor:pointer;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:500;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }}</button>
+      </sc-for>
+    </nav>
+    <div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <button onClick="{{ toggleTutto }}" title="Comprime o espande tutti i blocchi della sezione a video" style="cursor:pointer;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink2);border:1px solid var(--bd)">{{ toggleTuttoLabel }}</button>
+    </div>
+
+    <sc-if value="{{ mostraEsport }}" hint-placeholder-val="{{ true }}">
+      <div data-noprint="1" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink4)">Estrai “{{ vistaLabel }}”</span>
+        <button onClick="{{ esportaHtml }}" style="cursor:pointer;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Esporta HTML</button>
+        <button onClick="{{ esportaPdf }}" style="cursor:pointer;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:500;background:var(--card);color:var(--ink);border:1px solid var(--bd)">Stampa / PDF</button>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ caricamento }}" hint-placeholder-val="{{ true }}">
+    <div style="margin:40px 0;padding:24px 26px;background:var(--card);border:1px solid var(--bd);border-left:3px solid #b4442e;border-radius:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b4442e;margin-bottom:8px">Dati non caricati</div>
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.6">Il file <code>roadmap.data.js</code> non è stato letto: deve stare nella stessa cartella di questa pagina e definire <code>window.roadmap = { … }</code>.</p>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--body)">
+        <li>Sposta la pagina insieme a tutta la cartella <code>dossier/</code>: i file accanto le servono.</li>
+        <li>Se il file usa <code>export const roadmap</code>, è la versione vecchia: sostituisci con <code>window.roadmap</code>.</li>
+        <li>Errore di sintassi nei dati? Aprilo con F12 → Console per il dettaglio.</li>
+      </ul>
+    </div>
+  </sc-if>
+
+  <div ref="{{ areaRef }}">
+
+  <!-- ============================ ROADMAP INTERNA / SAL ==================== -->
+  <sc-if value="{{ isSal }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:26px">
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Avanzamento</div>
+          <div style="font-size:28px;font-weight:600;margin:4px 0 8px">{{ p.avanzamentoStr }}</div>
+          <div style="height:6px;background:var(--track);border-radius:3px;overflow:hidden"><div style="height:100%;width:{{ p.avanzamentoStr }};background:#3f78c4"></div></div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Salute progetto</div>
+          <div style="font-size:20px;font-weight:600;margin:8px 0 4px;color:{{ p.saluteFg }}">{{ p.salute }}</div>
+          <div style="font-size:12px;color:var(--ink2)">{{ nAlta }} punti a priorità alta</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Punti aperti / chiusi</div>
+          <div style="font-size:28px;font-weight:600;margin:4px 0">{{ nAperti }} <span style="font-size:18px;color:var(--ink4)">/ {{ nChiusi }}</span></div>
+          <div style="font-size:12px;color:var(--ink2)">bug, analisi, dipendenze, debito</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">In produzione</div>
+          <div style="font-size:28px;font-weight:600;margin:4px 0;font-family:'IBM Plex Mono',monospace">{{ p.versioneCorrente }}</div>
+          <div style="font-size:12px;color:var(--ink2)">prossimo: {{ p.prossimoRilascio }}</div>
+        </div>
+      </div>
+
+      <section>
+        <div onClick="{{ ap.sal_obiettivo_del_progetto.toggle }}" title="{{ ap.sal_obiettivo_del_progetto.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_obiettivo_del_progetto.freccia }}</span>Obiettivo del progetto</div>
+        <div data-corpo="1" style="display:{{ ap.sal_obiettivo_del_progetto.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
+            <div>
+              <p style="margin:0 0 14px;font-size:16px;line-height:1.55;text-wrap:pretty">{{ obiettivo.sintesi }}</p>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">Benefici attesi</div>
+              <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--body)">
+                <sc-for list="{{ obiettivo.beneficiAttesi }}" as="b" hint-placeholder-count="3"><li>{{ b }}</li></sc-for>
+              </ul>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">In perimetro</div>
+                <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--body)">
+                  <sc-for list="{{ obiettivo.inScope }}" as="s" hint-placeholder-count="3"><li>{{ s }}</li></sc-for>
+                </ul>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:6px">Fuori perimetro</div>
+                <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7;color:var(--ink3)">
+                  <sc-for list="{{ obiettivo.outOfScope }}" as="s" hint-placeholder-count="3"><li>{{ s }}</li></sc-for>
+                </ul>
+              </div>
+            </div>
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">KPI</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ kpi }}" as="k" hint-placeholder-count="4">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--bd2)">
+                    <span style="font-size:13px;color:var(--body)">{{ k.label }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ k.valore }} <span style="color:var(--ink4);font-weight:400">/ {{ k.target }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.sal_flusso_di_lavoro.toggle }}" title="{{ ap.sal_flusso_di_lavoro.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_flusso_di_lavoro.freccia }}</span>Flusso di lavoro e SAL — {{ p.periodo }}</div>
+        <div data-corpo="1" style="display:{{ ap.sal_flusso_di_lavoro.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px 20px 22px;overflow-x:auto">
+            <div style="min-width:760px">
+              <div style="display:grid;grid-template-columns:230px 1fr 132px;gap:12px;align-items:end;margin-bottom:8px">
+                <div></div>
+                <div style="position:relative;height:18px">
+                  <sc-for list="{{ mesi }}" as="m" hint-placeholder-count="10">
+                    <div style="position:absolute;top:0;left:{{ m.left }};width:{{ m.width }};font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4);border-left:1px solid var(--bd2);padding-left:4px">{{ m.label }}</div>
+                  </sc-for>
+                </div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">SAL</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ fasi }}" as="f" hint-placeholder-count="7">
+                  <div style="display:grid;grid-template-columns:230px 1fr 132px;gap:12px;align-items:center">
+                    <div>
+                      <div style="font-size:13px;font-weight:500;line-height:1.3">{{ f.nome }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ f.dateStr }} · {{ f.milestone }}</div>
+                    </div>
+                    <div style="position:relative;height:26px;background:var(--track);border-radius:5px">
+                      <div style="position:absolute;top:0;bottom:0;left:{{ f.left }};width:{{ f.width }};background:{{ f.barBg }};border-radius:5px;overflow:hidden">
+                        <div style="position:absolute;inset:0 auto 0 0;width:{{ f.avanzamentoStr }};background:{{ f.barFill }}"></div>
+                      </div>
+                      <div style="position:absolute;top:-4px;bottom:-4px;left:{{ oggiLeft }};width:0;border-left:2px dotted #c0503a"></div>
+                    </div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:{{ f.barText }};white-space:nowrap">{{ f.avanzamentoStr }} · {{ f.stato }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+            <div onClick="{{ ap.sal_punti_aperti.toggle }}" title="{{ ap.sal_punti_aperti.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_punti_aperti.freccia }}</span>Punti aperti ({{ nAperti }})</div>
+          </div>
+          <div data-corpo="1" style="display:{{ ap.sal_punti_aperti.display }}">
+            <sc-if value="{{ fPuntiAperti.mostra }}" hint-placeholder-val="{{ true }}">
+              <div data-filtro="{{ fPuntiAperti.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                <sc-for list="{{ fPuntiAperti.gruppi }}" as="g" hint-placeholder-count="1">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                    <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                      <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                    </sc-for>
+                    <sc-if value="{{ g.filtrato }}">
+                      <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fPuntiAperti.badge }}</span>
+              </div>
+            </sc-if>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ puntiAperti }}" as="o" hint-placeholder-count="5">
+                <div style="padding:14px 16px;border-top:1px solid var(--bd2);display:flex;gap:12px;align-items:flex-start">
+                  <div style="flex:0 0 66px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3);padding-top:2px">{{ o.id }}</div>
+                  <div style="flex:1 1 auto;min-width:0">
+                    <div style="font-size:14px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ o.titolo }}</div>
+                    <div style="font-size:12px;color:var(--ink2);margin-top:3px;line-height:1.5">{{ o.note }}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center">
+                      <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ o.prBg }};color:{{ o.prFg }}">{{ o.priorita }}</span>
+                      <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--tag);color:var(--ink2)">{{ o.tipo }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ o.owner }} · scad. {{ o.scadenzaStr }}</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div onClick="{{ ap.sal_punti_chiusi.toggle }}" title="{{ ap.sal_punti_chiusi.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_punti_chiusi.freccia }}</span>Punti chiusi ({{ nChiusi }})</div>
+          <div data-corpo="1" style="display:{{ ap.sal_punti_chiusi.display }}">
+            <sc-if value="{{ fPuntiChiusi.mostra }}" hint-placeholder-val="{{ true }}">
+              <div data-filtro="{{ fPuntiChiusi.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                <sc-for list="{{ fPuntiChiusi.gruppi }}" as="g" hint-placeholder-count="1">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                    <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                      <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                    </sc-for>
+                    <sc-if value="{{ g.filtrato }}">
+                      <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fPuntiChiusi.badge }}</span>
+              </div>
+            </sc-if>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ puntiChiusi }}" as="c" hint-placeholder-count="5">
+                <div style="padding:14px 16px;border-top:1px solid var(--bd2);display:flex;gap:12px;align-items:flex-start">
+                  <div style="flex:0 0 66px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4);padding-top:2px">{{ c.id }}</div>
+                  <div style="flex:1 1 auto;min-width:0">
+                    <div style="font-size:14px;line-height:1.35;color:var(--body);text-wrap:pretty">{{ c.titolo }}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
+                      <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:#e2f3e8;color:#1b6b42">{{ c.versione }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ c.chiusoIlStr }} · {{ c.esito }}</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.sal_rilasci_e_versioni.toggle }}" title="{{ ap.sal_rilasci_e_versioni.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_rilasci_e_versioni.freccia }}</span>Rilasci e versioni</div>
+        <div data-corpo="1" style="display:{{ ap.sal_rilasci_e_versioni.display }}">
+          <sc-if value="{{ fRilasci.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fRilasci.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fRilasci.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fRilasci.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:110px 110px 130px 1fr 220px;gap:0;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Versione</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Data</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Stato</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Contenuti</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Note</div>
+            </div>
+            <sc-for list="{{ rilasci }}" as="r" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:110px 110px 130px 1fr 220px;gap:0;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ r.versione }}</div>
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink2)">{{ r.dataStr }}</div>
+                <div style="padding:12px 14px"><span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ r.stBg }};color:{{ r.stFg }}">{{ r.stato }}</span></div>
+                <div style="padding:12px 14px;font-size:13px;line-height:1.5">{{ r.contenutiStr }}</div>
+                <div style="padding:12px 14px;font-size:12px;color:var(--ink3);line-height:1.5">{{ r.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.sal_richieste_del_cliente.toggle }}" title="{{ ap.sal_richieste_del_cliente.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_richieste_del_cliente.freccia }}</span>Richieste del cliente</div>
+          <div data-corpo="1" style="display:{{ ap.sal_richieste_del_cliente.display }}">
+            <sc-if value="{{ fRichieste.mostra }}" hint-placeholder-val="{{ true }}">
+              <div data-filtro="{{ fRichieste.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                <sc-for list="{{ fRichieste.gruppi }}" as="g" hint-placeholder-count="1">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                    <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                      <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                    </sc-for>
+                    <sc-if value="{{ g.filtrato }}">
+                      <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fRichieste.badge }}</span>
+              </div>
+            </sc-if>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ richieste }}" as="q" hint-placeholder-count="5">
+                <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                  <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3)">{{ q.id }} · {{ q.dataStr }}</span>
+                    <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ q.stBg }};color:{{ q.stFg }}">{{ q.stato }}</span>
+                  </div>
+                  <div style="font-size:14px;line-height:1.4;margin-top:5px;text-wrap:pretty">{{ q.richiesta }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4);margin-top:6px">{{ q.fonte }} · impatto {{ q.impatto }} · target {{ q.versioneTarget }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div onClick="{{ ap.sal_rischi.toggle }}" title="{{ ap.sal_rischi.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_rischi.freccia }}</span>Rischi</div>
+            <div data-corpo="1" style="display:{{ ap.sal_rischi.display }}">
+              <sc-if value="{{ fRischi.mostra }}" hint-placeholder-val="{{ true }}">
+                <div data-filtro="{{ fRischi.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                  <sc-for list="{{ fRischi.gruppi }}" as="g" hint-placeholder-count="1">
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                      <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                        <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                      </sc-for>
+                      <sc-if value="{{ g.filtrato }}">
+                        <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fRischi.badge }}</span>
+                </div>
+              </sc-if>
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                <sc-for list="{{ rischi }}" as="x" hint-placeholder-count="4">
+                  <div style="padding:13px 16px;border-top:1px solid var(--bd2)">
+                    <div style="display:flex;gap:8px;align-items:baseline;justify-content:space-between">
+                      <span style="font-size:14px;font-weight:500;line-height:1.35;text-wrap:pretty">{{ x.titolo }}</span>
+                      <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ x.svBg }};color:{{ x.svFg }};white-space:nowrap">{{ x.severita }}</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--ink2);margin-top:4px;line-height:1.5">Mitigazione: {{ x.mitigazione }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div onClick="{{ ap.sal_decisioni_e_note.toggle }}" title="{{ ap.sal_decisioni_e_note.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_decisioni_e_note.freccia }}</span>Decisioni e note</div>
+            <div data-corpo="1" style="display:{{ ap.sal_decisioni_e_note.display }}">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                <sc-for list="{{ decisioni }}" as="dc" hint-placeholder-count="3">
+                  <div style="padding:13px 16px;border-top:1px solid var(--bd2)">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ dc.dataStr }} · {{ dc.contesto }} · {{ dc.decisoDa }}</div>
+                    <div style="font-size:13px;line-height:1.5;margin-top:4px">{{ dc.decisione }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.sal_storico_aggiornamenti_del.toggle }}" title="{{ ap.sal_storico_aggiornamenti_del.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_storico_aggiornamenti_del.freccia }}</span>Storico aggiornamenti del documento</div>
+        <div data-corpo="1" style="display:{{ ap.sal_storico_aggiornamenti_del.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ changelog }}" as="l" hint-placeholder-count="2">
+              <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;font-size:13px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink3);flex:0 0 90px">{{ l.dataStr }}</span>
+                <span style="flex:1 1 300px">{{ l.modifiche }}</span>
+                <span style="font-size:12px;color:var(--ink4)">{{ l.fonte }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      <!-- ---- ISTRUZIONI DELLA SKILL (vista interna) ------------------------ -->
+      <section>
+        <div onClick="{{ ap.sal_istruzioni_della_skill.toggle }}" title="{{ ap.sal_istruzioni_della_skill.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_istruzioni_della_skill.freccia }}</span>Istruzioni della skill — richiamo da Claude</div>
+        <div data-corpo="1" style="display:{{ ap.sal_istruzioni_della_skill.display }}">
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ comandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:300px 1fr 250px;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Richiamo</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa fa</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa tocca</div>
+            </div>
+            <sc-for list="{{ comandi.voci }}" as="c" hint-placeholder-count="10">
+              <div style="display:grid;grid-template-columns:300px 1fr 250px;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="padding:12px 14px;font-size:13px;color:var(--body);line-height:1.5;text-wrap:pretty">{{ c.cosaFa }}</div>
+                <div style="padding:12px 14px;font-size:12px;color:var(--ink3);line-height:1.5">{{ c.tocca }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.sal_comandi_eseguiti_dalla.toggle }}" title="{{ ap.sal_comandi_eseguiti_dalla.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.sal_comandi_eseguiti_dalla.freccia }}</span>Comandi eseguiti dalla skill (non dall'utente)</div>
+        <div data-corpo="1" style="display:{{ ap.sal_comandi_eseguiti_dalla.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ comandi.script }}" as="s" hint-placeholder-count="6">
+              <div style="padding:13px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="flex:0 0 330px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);overflow-wrap:anywhere">{{ s.comando }}</span>
+                <span style="flex:1 1 320px;font-size:13px;color:var(--body);line-height:1.5">{{ s.cosaFa }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ s.quando }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  <!-- ============================ FUNZIONALE INTERNA ======================= -->
+  <sc-if value="{{ isFunzInt }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:26px">
+      <p style="margin:0;font-size:17px;line-height:1.55;max-width:900px;text-wrap:pretty">{{ funzInt.sintesi }}</p>
+
+      <section>
+        <div onClick="{{ ap.funzInt_moduli_funzionali.toggle }}" title="{{ ap.funzInt_moduli_funzionali.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_moduli_funzionali.freccia }}</span>Moduli funzionali</div>
+        <div data-corpo="1" style="display:{{ ap.funzInt_moduli_funzionali.display }}">
+          <sc-if value="{{ fModuli.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fModuli.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fModuli.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fModuli.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:230px 130px 1fr 220px;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Modulo</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Stato</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Copertura funzionale</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Punti collegati</div>
+            </div>
+            <sc-for list="{{ funzInt.moduli }}" as="m" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:230px 130px 1fr 220px;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-size:14px;font-weight:500">{{ m.nome }}</div>
+                <div style="padding:12px 14px"><span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ m.stBg }};color:{{ m.stFg }}">{{ m.stato }}</span></div>
+                <div style="padding:12px 14px;font-size:13px;color:var(--body);line-height:1.5">{{ m.copertura }}</div>
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3)">{{ m.aperti }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.funzInt_flussi_principali.toggle }}" title="{{ ap.funzInt_flussi_principali.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_flussi_principali.freccia }}</span>Flussi principali</div>
+          <div data-corpo="1" style="display:{{ ap.funzInt_flussi_principali.display }}">
+            <sc-if value="{{ fFlussi.mostra }}" hint-placeholder-val="{{ true }}">
+              <div data-filtro="{{ fFlussi.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                <sc-for list="{{ fFlussi.gruppi }}" as="g" hint-placeholder-count="1">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                    <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                      <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                    </sc-for>
+                    <sc-if value="{{ g.filtrato }}">
+                      <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fFlussi.badge }}</span>
+              </div>
+            </sc-if>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ funzInt.flussi }}" as="f" hint-placeholder-count="4">
+                <div style="padding:13px 16px;border-top:1px solid var(--bd2)">
+                  <div style="display:flex;gap:10px;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:14px;font-weight:500">{{ f.nome }}</span>
+                    <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ f.stBg }};color:{{ f.stFg }}">{{ f.stato }}</span>
+                  </div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink2);margin-top:5px;line-height:1.6">{{ f.passi }}</div>
+                  <div style="font-size:12px;color:var(--ink4);margin-top:4px">{{ f.note }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div onClick="{{ ap.funzInt_attori_e_bisogni.toggle }}" title="{{ ap.funzInt_attori_e_bisogni.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_attori_e_bisogni.freccia }}</span>Attori e bisogni</div>
+          <div data-corpo="1" style="display:{{ ap.funzInt_attori_e_bisogni.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ funzInt.attori }}" as="a" hint-placeholder-count="4">
+                <div style="padding:13px 16px;border-top:1px solid var(--bd2);display:flex;justify-content:space-between;gap:12px;align-items:baseline">
+                  <div>
+                    <div style="font-size:14px;font-weight:500">{{ a.attore }}</div>
+                    <div style="font-size:12px;color:var(--ink2);margin-top:3px">{{ a.bisogno }}</div>
+                  </div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4);white-space:nowrap">{{ a.volumi }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.funzInt_regole_di_business.toggle }}" title="{{ ap.funzInt_regole_di_business.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_regole_di_business.freccia }}</span>Regole di business</div>
+          <div data-corpo="1" style="display:{{ ap.funzInt_regole_di_business.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ funzInt.regole }}" as="r" hint-placeholder-count="4">
+                <div style="padding:13px 16px;border-top:1px solid var(--bd2);display:flex;gap:12px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#2f66b3;flex:0 0 52px">{{ r.codice }}</span>
+                  <div>
+                    <div style="font-size:13px;line-height:1.5;text-wrap:pretty">{{ r.regola }}</div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4);margin-top:4px">{{ r.origine }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div onClick="{{ ap.funzInt_analisi_e_documentazione.toggle }}" title="{{ ap.funzInt_analisi_e_documentazione.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_analisi_e_documentazione.freccia }}</span>Analisi e documentazione</div>
+          <div data-corpo="1" style="display:{{ ap.funzInt_analisi_e_documentazione.display }}">
+            <sc-if value="{{ fAnalisi.mostra }}" hint-placeholder-val="{{ true }}">
+              <div data-filtro="{{ fAnalisi.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                <sc-for list="{{ fAnalisi.gruppi }}" as="g" hint-placeholder-count="1">
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                    <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                      <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                    </sc-for>
+                    <sc-if value="{{ g.filtrato }}">
+                      <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fAnalisi.badge }}</span>
+              </div>
+            </sc-if>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ analisi }}" as="d" hint-placeholder-count="5">
+                <div style="padding:13px 16px;border-top:1px solid var(--bd2)">
+                  <div style="display:flex;gap:10px;align-items:baseline;justify-content:space-between">
+                    <span style="font-size:14px;font-weight:500">{{ d.titolo }} <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ d.versione }}</span></span>
+                    <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ d.stBg }};color:{{ d.stFg }};white-space:nowrap">{{ d.stato }}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--ink2);margin-top:4px;line-height:1.5">{{ d.sintesi }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4);margin-top:5px">{{ d.riferimento }} · agg. {{ d.aggiornatoStr }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ---- ISTRUZIONI DELLA SKILL (vista interna) ------------------------ -->
+      <section>
+        <div onClick="{{ ap.funzInt_istruzioni_della_skill.toggle }}" title="{{ ap.funzInt_istruzioni_della_skill.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_istruzioni_della_skill.freccia }}</span>Istruzioni della skill — richiamo da Claude</div>
+        <div data-corpo="1" style="display:{{ ap.funzInt_istruzioni_della_skill.display }}">
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ comandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:300px 1fr 250px;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Richiamo</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa fa</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa tocca</div>
+            </div>
+            <sc-for list="{{ comandi.voci }}" as="c" hint-placeholder-count="10">
+              <div style="display:grid;grid-template-columns:300px 1fr 250px;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="padding:12px 14px;font-size:13px;color:var(--body);line-height:1.5;text-wrap:pretty">{{ c.cosaFa }}</div>
+                <div style="padding:12px 14px;font-size:12px;color:var(--ink3);line-height:1.5">{{ c.tocca }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.funzInt_comandi_eseguiti_dalla.toggle }}" title="{{ ap.funzInt_comandi_eseguiti_dalla.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzInt_comandi_eseguiti_dalla.freccia }}</span>Comandi eseguiti dalla skill (non dall'utente)</div>
+        <div data-corpo="1" style="display:{{ ap.funzInt_comandi_eseguiti_dalla.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ comandi.script }}" as="s" hint-placeholder-count="6">
+              <div style="padding:13px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="flex:0 0 330px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);overflow-wrap:anywhere">{{ s.comando }}</span>
+                <span style="flex:1 1 320px;font-size:13px;color:var(--body);line-height:1.5">{{ s.cosaFa }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ s.quando }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  <!-- ============================ TECNICA INTERNA ========================== -->
+  <sc-if value="{{ isTecInt }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:26px">
+      <p style="margin:0;font-size:17px;line-height:1.55;max-width:900px;text-wrap:pretty">{{ tecInt.sintesi }}</p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+        <sc-for list="{{ tecInt.metriche }}" as="m" hint-placeholder-count="6">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">{{ m.label }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:5px">{{ m.valore }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.tecInt_stack_tecnologico.toggle }}" title="{{ ap.tecInt_stack_tecnologico.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_stack_tecnologico.freccia }}</span>Stack tecnologico</div>
+          <div data-corpo="1" style="display:{{ ap.tecInt_stack_tecnologico.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ tecInt.stack }}" as="s" hint-placeholder-count="6">
+                <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:grid;grid-template-columns:100px 1fr;gap:12px;align-items:baseline">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3)">{{ s.area }}</div>
+                  <div>
+                    <div style="font-size:14px;font-weight:500">{{ s.tecnologia }}</div>
+                    <div style="font-size:12px;color:var(--ink3);margin-top:2px">{{ s.note }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div onClick="{{ ap.tecInt_ambienti.toggle }}" title="{{ ap.tecInt_ambienti.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_ambienti.freccia }}</span>Ambienti</div>
+            <div data-corpo="1" style="display:{{ ap.tecInt_ambienti.display }}">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                <sc-for list="{{ tecInt.ambienti }}" as="a" hint-placeholder-count="3">
+                  <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:flex;gap:12px;align-items:center;justify-content:space-between">
+                    <div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ a.nome }} <span style="color:var(--ink4);font-weight:400">{{ a.versione }}</span></div>
+                      <div style="font-size:12px;color:var(--ink3);margin-top:2px">{{ a.url }} · {{ a.note }}</div>
+                    </div>
+                    <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ a.stBg }};color:{{ a.stFg }};white-space:nowrap">{{ a.stato }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div onClick="{{ ap.tecInt_debito_tecnico.toggle }}" title="{{ ap.tecInt_debito_tecnico.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_debito_tecnico.freccia }}</span>Debito tecnico</div>
+            <div data-corpo="1" style="display:{{ ap.tecInt_debito_tecnico.display }}">
+              <sc-if value="{{ fDebito.mostra }}" hint-placeholder-val="{{ true }}">
+                <div data-filtro="{{ fDebito.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+                  <sc-for list="{{ fDebito.gruppi }}" as="g" hint-placeholder-count="1">
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                      <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                        <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                      </sc-for>
+                      <sc-if value="{{ g.filtrato }}">
+                        <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fDebito.badge }}</span>
+                </div>
+              </sc-if>
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+                <sc-for list="{{ tecInt.debitoTecnico }}" as="d" hint-placeholder-count="4">
+                  <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:flex;gap:12px;align-items:center;justify-content:space-between">
+                    <div style="font-size:13px;line-height:1.4;text-wrap:pretty">{{ d.voce }}</div>
+                    <div style="display:flex;gap:6px;align-items:center;white-space:nowrap">
+                      <span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ d.imBg }};color:{{ d.imFg }}">{{ d.impatto }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ d.effort }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.tecInt_componenti_e_responsabilita.toggle }}" title="{{ ap.tecInt_componenti_e_responsabilita.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_componenti_e_responsabilita.freccia }}</span>Componenti e responsabilità</div>
+        <div data-corpo="1" style="display:{{ ap.tecInt_componenti_e_responsabilita.display }}">
+          <sc-if value="{{ fComponenti.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fComponenti.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fComponenti.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fComponenti.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:210px 160px 130px 110px 1fr;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Componente</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Responsabile</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Stato</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Test</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Note</div>
+            </div>
+            <sc-for list="{{ tecInt.componenti }}" as="c" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:210px 160px 130px 110px 1fr;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500">{{ c.nome }}</div>
+                <div style="padding:12px 14px;font-size:13px;color:var(--body)">{{ c.responsabile }}</div>
+                <div style="padding:12px 14px"><span style="padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ c.stBg }};color:{{ c.stFg }}">{{ c.stato }}</span></div>
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink2)">{{ c.copertura }}</div>
+                <div style="padding:12px 14px;font-size:12px;color:var(--ink3);line-height:1.5">{{ c.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.tecInt_team.toggle }}" title="{{ ap.tecInt_team.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_team.freccia }}</span>Team</div>
+        <div data-corpo="1" style="display:{{ ap.tecInt_team.display }}">
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ team }}" as="t" hint-placeholder-count="7">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:9px 14px">
+                <div style="font-size:13px;font-weight:500">{{ t.nome }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink3)">{{ t.ruolo }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      <!-- ---- ISTRUZIONI DELLA SKILL (vista interna) ------------------------ -->
+      <section>
+        <div onClick="{{ ap.tecInt_istruzioni_della_skill.toggle }}" title="{{ ap.tecInt_istruzioni_della_skill.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_istruzioni_della_skill.freccia }}</span>Istruzioni della skill — richiamo da Claude</div>
+        <div data-corpo="1" style="display:{{ ap.tecInt_istruzioni_della_skill.display }}">
+          <p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ comandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:300px 1fr 250px;background:var(--thead)">
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Richiamo</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa fa</div>
+              <div style="padding:9px 14px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Che cosa tocca</div>
+            </div>
+            <sc-for list="{{ comandi.voci }}" as="c" hint-placeholder-count="10">
+              <div style="display:grid;grid-template-columns:300px 1fr 250px;border-top:1px solid var(--bd2)">
+                <div style="padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="padding:12px 14px;font-size:13px;color:var(--body);line-height:1.5;text-wrap:pretty">{{ c.cosaFa }}</div>
+                <div style="padding:12px 14px;font-size:12px;color:var(--ink3);line-height:1.5">{{ c.tocca }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.tecInt_comandi_eseguiti_dalla.toggle }}" title="{{ ap.tecInt_comandi_eseguiti_dalla.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecInt_comandi_eseguiti_dalla.freccia }}</span>Comandi eseguiti dalla skill (non dall'utente)</div>
+        <div data-corpo="1" style="display:{{ ap.tecInt_comandi_eseguiti_dalla.display }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ comandi.script }}" as="s" hint-placeholder-count="6">
+              <div style="padding:13px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="flex:0 0 330px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink);overflow-wrap:anywhere">{{ s.comando }}</span>
+                <span style="flex:1 1 320px;font-size:13px;color:var(--body);line-height:1.5">{{ s.cosaFa }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ s.quando }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  <!-- ============================ ROADMAP CLIENTE ========================== -->
+  <sc-if value="{{ isRoadCli }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:30px;max-width:1000px">
+      <div style="background:var(--card);border:1px solid var(--bd);border-left:4px solid #3f78c4;border-radius:10px;padding:22px 26px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Stato del progetto al {{ p.aggiornatoIl }}</div>
+        <p style="margin:0;font-size:19px;line-height:1.5;text-wrap:pretty">{{ cliRoad.messaggio }}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;margin-top:18px">
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Avanzamento</div><div style="font-size:22px;font-weight:600">{{ p.avanzamentoStr }}</div></div>
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Versione online</div><div style="font-size:22px;font-weight:600;font-family:'IBM Plex Mono',monospace">{{ p.versioneCorrente }}</div></div>
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)">Prossima consegna</div><div style="font-size:22px;font-weight:600">{{ p.prossimoRilascio }}</div></div>
+        </div>
+      </div>
+
+      <section>
+        <div onClick="{{ ap.roadCli_le_tappe_del.toggle }}" title="{{ ap.roadCli_le_tappe_del.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:14px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.roadCli_le_tappe_del.freccia }}</span>Le tappe del progetto</div>
+        <div data-corpo="1" style="display:{{ ap.roadCli_le_tappe_del.display }}">
+          <sc-if value="{{ fTappe.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fTappe.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fTappe.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fTappe.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ cliRoad.tappe }}" as="t" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:150px 28px 1fr;gap:14px;align-items:flex-start">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink3);padding-top:14px;text-align:right">{{ t.periodo }}</div>
+                <div style="position:relative;align-self:stretch;display:flex;justify-content:center">
+                  <div style="position:absolute;top:0;bottom:0;width:2px;background:var(--bd)"></div>
+                  <div style="position:relative;margin-top:14px;width:14px;height:14px;border-radius:50%;background:{{ t.dot }};border:3px solid var(--bg)"></div>
+                </div>
+                <div style="padding:8px 0 22px">
+                  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:baseline">
+                    <span style="font-size:17px;font-weight:600">{{ t.titolo }}</span>
+                    <span style="padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.stBg }};color:{{ t.stFg }}">{{ t.statoLabel }}</span>
+                  </div>
+                  <div style="font-size:14px;color:var(--body);line-height:1.6;margin-top:5px;max-width:620px;text-wrap:pretty">{{ t.cosaSignifica }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.roadCli_prossimi_passi.toggle }}" title="{{ ap.roadCli_prossimi_passi.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.roadCli_prossimi_passi.freccia }}</span>Prossimi passi</div>
+          <div data-corpo="1" style="display:{{ ap.roadCli_prossimi_passi.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ cliRoad.prossimiPassi }}" as="s" hint-placeholder-count="4">
+                <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                  <div style="font-size:15px;line-height:1.4">{{ s.cosa }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink3);margin-top:4px">{{ s.quando }} · {{ s.chi }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div onClick="{{ ap.roadCli_cosa_serve_da.toggle }}" title="{{ ap.roadCli_cosa_serve_da.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.roadCli_cosa_serve_da.freccia }}</span>Cosa serve da voi</div>
+          <div data-corpo="1" style="display:{{ ap.roadCli_cosa_serve_da.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ cliFunz.cosaServeDaVoi }}" as="r" hint-placeholder-count="3">
+                <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                  <div style="display:flex;gap:10px;justify-content:space-between;align-items:baseline">
+                    <span style="font-size:15px;line-height:1.4">{{ r.richiesta }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#ab3b22;white-space:nowrap">entro {{ r.entro }}</span>
+                  </div>
+                  <div style="font-size:13px;color:var(--ink2);margin-top:4px;line-height:1.5">{{ r.perche }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.roadCli_consegne_effettuate.toggle }}" title="{{ ap.roadCli_consegne_effettuate.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.roadCli_consegne_effettuate.freccia }}</span>Consegne effettuate</div>
+        <div data-corpo="1" style="display:{{ ap.roadCli_consegne_effettuate.display }}">
+          <sc-if value="{{ fRilasciCli.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fRilasciCli.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fRilasciCli.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fRilasciCli.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ rilasciCliente }}" as="r" hint-placeholder-count="4">
+              <div style="padding:14px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;flex:0 0 70px">{{ r.versione }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink3);flex:0 0 90px">{{ r.dataStr }}</span>
+                <span style="flex:1 1 320px;font-size:14px;line-height:1.5">{{ r.contenutiStr }}</span>
+                <span style="padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ r.stBg }};color:{{ r.stFg }}">{{ r.stato }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      <!-- ---- CHE COSA SI PUÒ CHIEDERE (vista cliente) ---------------------- -->
+      <section>
+        <div onClick="{{ ap.roadCli_come_si_chiede.toggle }}" title="{{ ap.roadCli_come_si_chiede.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.roadCli_come_si_chiede.freccia }}</span>Come si chiede un aggiornamento</div>
+        <div data-corpo="1" style="display:{{ ap.roadCli_come_si_chiede.display }}">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ cliComandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ cliComandi.voci }}" as="c" hint-placeholder-count="8">
+              <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--body);margin-top:5px;text-wrap:pretty">{{ c.cosaFa }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  <!-- ============================ FUNZIONALE CLIENTE ======================= -->
+  <sc-if value="{{ isFunzCli }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:30px;max-width:1000px">
+      <p style="margin:0;font-size:19px;line-height:1.55;text-wrap:pretty">{{ cliFunz.sintesi }}</p>
+
+      <section>
+        <div onClick="{{ ap.funzCli_cosa_fa_il.toggle }}" title="{{ ap.funzCli_cosa_fa_il.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzCli_cosa_fa_il.freccia }}</span>Cosa fa il portale</div>
+        <div data-corpo="1" style="display:{{ ap.funzCli_cosa_fa_il.display }}">
+          <sc-if value="{{ fDisponibile.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fDisponibile.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fDisponibile.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fDisponibile.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+            <sc-for list="{{ cliFunz.cosaDisponibile }}" as="f" hint-placeholder-count="6">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px">
+                <div style="display:flex;gap:10px;justify-content:space-between;align-items:baseline">
+                  <span style="font-size:16px;font-weight:600;line-height:1.3">{{ f.funzione }}</span>
+                  <span style="padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ f.stBg }};color:{{ f.stFg }};white-space:nowrap">{{ f.statoLabel }}</span>
+                </div>
+                <div style="font-size:14px;color:var(--body);line-height:1.6;margin-top:8px;text-wrap:pretty">{{ f.descrizione }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px">
+        <div>
+          <div onClick="{{ ap.funzCli_benefici_per_voi.toggle }}" title="{{ ap.funzCli_benefici_per_voi.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzCli_benefici_per_voi.freccia }}</span>Benefici per voi</div>
+          <div data-corpo="1" style="display:{{ ap.funzCli_benefici_per_voi.display }}">
+            <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:var(--body)">
+              <sc-for list="{{ cliFunz.beneficiCliente }}" as="b" hint-placeholder-count="3"><li>{{ b }}</li></sc-for>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div onClick="{{ ap.funzCli_obiettivi_misurabili.toggle }}" title="{{ ap.funzCli_obiettivi_misurabili.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzCli_obiettivi_misurabili.freccia }}</span>Obiettivi misurabili</div>
+          <div data-corpo="1" style="display:{{ ap.funzCli_obiettivi_misurabili.display }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+              <sc-for list="{{ kpi }}" as="k" hint-placeholder-count="4">
+                <div style="padding:12px 16px;border-top:1px solid var(--bd2);display:flex;justify-content:space-between;gap:12px;align-items:baseline">
+                  <span style="font-size:14px">{{ k.label }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600">{{ k.valore }} <span style="color:var(--ink4);font-weight:400">/ {{ k.target }}</span></span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.funzCli_richieste_raccolte_in.toggle }}" title="{{ ap.funzCli_richieste_raccolte_in.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzCli_richieste_raccolte_in.freccia }}</span>Richieste raccolte in riunione</div>
+        <div data-corpo="1" style="display:{{ ap.funzCli_richieste_raccolte_in.display }}">
+          <sc-if value="{{ fRichiesteCli.mostra }}" hint-placeholder-val="{{ true }}">
+            <div data-filtro="{{ fRichiesteCli.riassunto }}" style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 10px">
+              <sc-for list="{{ fRichiesteCli.gruppi }}" as="g" hint-placeholder-count="1">
+                <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">{{ g.label }}</span>
+                  <sc-for list="{{ g.tag }}" as="t" hint-placeholder-count="3">
+                    <button onClick="{{ t.onClick }}" title="{{ t.title }}" style="cursor:pointer;padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ t.bg }};color:{{ t.fg }};border:1px solid {{ t.bd }}">{{ t.label }} <span style="font-weight:400;opacity:.6">{{ t.n }}</span></button>
+                  </sc-for>
+                  <sc-if value="{{ g.filtrato }}">
+                    <button onClick="{{ g.reset }}" title="Rimetti tutti i tag" style="cursor:pointer;padding:2px 8px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;background:transparent;color:var(--ink3);border:1px dashed var(--bd)">tutti</button>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink4)">{{ fRichiesteCli.badge }}</span>
+            </div>
+          </sc-if>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ richiesteCliente }}" as="q" hint-placeholder-count="5">
+              <div style="padding:14px 16px;border-top:1px solid var(--bd2);display:flex;flex-wrap:wrap;gap:12px;align-items:baseline">
+                <span style="flex:1 1 340px;font-size:15px;line-height:1.5">{{ q.richiesta }}</span>
+                <span style="padding:2px 9px;border-radius:999px;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;background:{{ q.stBg }};color:{{ q.stFg }}">{{ q.stato }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4)">{{ q.dataStr }} · prevista in {{ q.versioneTarget }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+      <!-- ---- CHE COSA SI PUÒ CHIEDERE (vista cliente) ---------------------- -->
+      <section>
+        <div onClick="{{ ap.funzCli_come_si_chiede.toggle }}" title="{{ ap.funzCli_come_si_chiede.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.funzCli_come_si_chiede.freccia }}</span>Come si chiede un aggiornamento</div>
+        <div data-corpo="1" style="display:{{ ap.funzCli_come_si_chiede.display }}">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ cliComandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ cliComandi.voci }}" as="c" hint-placeholder-count="8">
+              <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--body);margin-top:5px;text-wrap:pretty">{{ c.cosaFa }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  <!-- ============================ TECNICA CLIENTE ========================== -->
+  <sc-if value="{{ isTecCli }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;flex-direction:column;gap:30px;max-width:1000px">
+      <p style="margin:0;font-size:19px;line-height:1.55;text-wrap:pretty">{{ cliTec.sintesi }}</p>
+
+      <section>
+        <div onClick="{{ ap.tecCli_come_funziona_in.toggle }}" title="{{ ap.tecCli_come_funziona_in.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecCli_come_funziona_in.freccia }}</span>Come funziona, in breve</div>
+        <div data-corpo="1" style="display:{{ ap.tecCli_come_funziona_in.display }}">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ cliTec.puntiChiave }}" as="k" hint-placeholder-count="5">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px 20px;display:grid;grid-template-columns:minmax(180px,240px) 1fr;gap:20px;align-items:baseline">
+                <div style="font-size:16px;font-weight:600;line-height:1.3">{{ k.titolo }}</div>
+                <div style="font-size:15px;color:var(--body);line-height:1.6;text-wrap:pretty">{{ k.spiegazione }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.tecCli_prestazioni_e_disponibilita.toggle }}" title="{{ ap.tecCli_prestazioni_e_disponibilita.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecCli_prestazioni_e_disponibilita.freccia }}</span>Prestazioni e disponibilità</div>
+        <div data-corpo="1" style="display:{{ ap.tecCli_prestazioni_e_disponibilita.display }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px">
+            <sc-for list="{{ cliTec.prestazioni }}" as="m" hint-placeholder-count="3">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px">
+                <div style="font-size:14px;color:var(--ink2)">{{ m.label }}</div>
+                <div style="font-size:28px;font-weight:600;margin-top:6px">{{ m.valore }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4);margin-top:2px">obiettivo {{ m.target }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div onClick="{{ ap.tecCli_ambiti_inclusi_e.toggle }}" title="{{ ap.tecCli_ambiti_inclusi_e.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:12px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecCli_ambiti_inclusi_e.freccia }}</span>Ambiti inclusi e non inclusi</div>
+        <div data-corpo="1" style="display:{{ ap.tecCli_ambiti_inclusi_e.display }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px 20px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#1e7247;margin-bottom:8px">Incluso</div>
+              <ul style="margin:0;padding-left:18px;font-size:15px;line-height:1.75;color:var(--body)">
+                <sc-for list="{{ obiettivo.inScope }}" as="s" hint-placeholder-count="4"><li>{{ s }}</li></sc-for>
+              </ul>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:18px 20px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-bottom:8px">Non incluso in questa fase</div>
+              <ul style="margin:0;padding-left:18px;font-size:15px;line-height:1.75;color:var(--ink2)">
+                <sc-for list="{{ obiettivo.outOfScope }}" as="s" hint-placeholder-count="3"><li>{{ s }}</li></sc-for>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ---- CHE COSA SI PUÒ CHIEDERE (vista cliente) ---------------------- -->
+      <section>
+        <div onClick="{{ ap.tecCli_come_si_chiede.toggle }}" title="{{ ap.tecCli_come_si_chiede.title }}" style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px"><span data-chevron="1" style="display:inline-block;width:8px;font-size:9px;color:var(--ink4)">{{ ap.tecCli_come_si_chiede.freccia }}</span>Come si chiede un aggiornamento</div>
+        <div data-corpo="1" style="display:{{ ap.tecCli_come_si_chiede.display }}">
+          <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:var(--body);max-width:1000px;text-wrap:pretty">{{ cliComandi.sintesi }}</p>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+            <sc-for list="{{ cliComandi.voci }}" as="c" hint-placeholder-count="8">
+              <div style="padding:14px 16px;border-top:1px solid var(--bd2)">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#2f66b3;overflow-wrap:anywhere">{{ c.richiamo }}</div>
+                <div style="font-size:14px;line-height:1.55;color:var(--body);margin-top:5px;text-wrap:pretty">{{ c.cosaFa }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </div>
+  </sc-if>
+
+  </div>
+
+  <footer style="margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink4);display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between">
+    <span>{{ piedeSinistro }}</span>
+    <span>{{ p.codice }} · {{ p.periodo }}</span>
+  </footer>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:900},&quot;temaIniziale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;config&quot;,&quot;auto&quot;,&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;config&quot;,&quot;tsType&quot;:&quot;'config'|'auto'|'light'|'dark'&quot;,&quot;section&quot;:&quot;Aspetto&quot;},&quot;mostraEsportazione&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;config&quot;,&quot;si&quot;,&quot;no&quot;],&quot;default&quot;:&quot;config&quot;,&quot;tsType&quot;:&quot;'config'|'si'|'no'&quot;,&quot;section&quot;:&quot;Aspetto&quot;},&quot;vistaIniziale&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;config&quot;,&quot;sal&quot;,&quot;funzInt&quot;,&quot;tecInt&quot;,&quot;roadCli&quot;,&quot;funzCli&quot;,&quot;tecCli&quot;],&quot;default&quot;:&quot;config&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Aspetto&quot;}}">
+/* Configurazione: dossier.config.js, caricato prima di questa logica. Ogni chiave ha
+   un default, così una config assente o incompleta non rompe la vista. Il logo di
+   default è vuoto: la roadmap non porta il marchio di nessuno se non lo si imposta. */
+const CFG = (() => {
+  const c = (typeof window !== "undefined" && window.dossierConfig) || {};
+  const b = c.branding || {}, v = c.vista || {};
+  const vr = v.roadmap || {};
+  const sez = vr.sezioni || {};
+  const attiva = (k) => sez[k] !== false;
+  const fl = vr.filtri || {};
+  return {
+    /* window.SC_LOGO: compatibilità con le roadmap che usavano assets/logo.js */
+    logo: b.logo || (typeof window !== "undefined" && window.SC_LOGO) || "",
+    logoAlt: b.logoAlt || b.organizzazione || "Logo",
+    logoAltezza: Number(b.logoAltezza) > 0 ? Number(b.logoAltezza) : 26,
+    logoPlacca: b.logoPlaccaTemaScuro !== false,
+    organizzazione: b.organizzazione || "",
+    temaIniziale: ["auto", "light", "dark"].indexOf(v.temaIniziale) >= 0 ? v.temaIniziale : "auto",
+    vistaIniziale: vr.vistaIniziale || "sal",
+    mostraEsportazione: v.mostraEsportazione !== false,
+    sezioni: {
+      sal: attiva("sal"), funzInt: attiva("funzInt"), tecInt: attiva("tecInt"),
+      roadCli: attiva("roadCli"), funzCli: attiva("funzCli"), tecCli: attiva("tecCli"),
+    },
+    /* Tag di filtro sopra gli elenchi con uno stato (punti, rilasci, richieste,
+       rischi, moduli, componenti…). Nascono tutti selezionati: chi non tocca
+       niente vede il documento completo, come prima che i filtri esistessero. */
+    filtri: {
+      attivi: fl.attivi !== false,
+      modalita: fl.modalita === "singola" ? "singola" : "multipla",
+      cliente: fl.cliente === true,
+    },
+  };
+})();
+
+const SEZIONI_INTERNE = ["sal", "funzInt", "tecInt"];
+const SEZIONI_CLIENTE = ["roadCli", "funzCli", "tecCli"];
+
+/* Il gergo interno tradotto per il cliente: stessa mappa per le etichette dei
+   contenuti e per quelle dei tag di filtro, così i due non divergono. */
+const ETICHETTE_CLIENTE = { completato: "disponibile", "in corso": "in lavorazione", pianificato: "in programma", bloccato: "in attesa" };
+
+/* I blocchi che si possono comprimere: l'id è quello usato nel template
+   (`ap.<id>`) ed è composto da sezione e titolo. Aggiungendo un blocco al
+   template, aggiungi qui il suo id: senza, l'intestazione non risponde al clic. */
+const BLOCCHI = [
+  "sal_obiettivo_del_progetto",
+  "sal_flusso_di_lavoro",
+  "sal_punti_aperti",
+  "sal_punti_chiusi",
+  "sal_rilasci_e_versioni",
+  "sal_richieste_del_cliente",
+  "sal_rischi",
+  "sal_decisioni_e_note",
+  "sal_storico_aggiornamenti_del",
+  "sal_istruzioni_della_skill",
+  "sal_comandi_eseguiti_dalla",
+  "funzInt_moduli_funzionali",
+  "funzInt_flussi_principali",
+  "funzInt_attori_e_bisogni",
+  "funzInt_regole_di_business",
+  "funzInt_analisi_e_documentazione",
+  "funzInt_istruzioni_della_skill",
+  "funzInt_comandi_eseguiti_dalla",
+  "tecInt_stack_tecnologico",
+  "tecInt_ambienti",
+  "tecInt_debito_tecnico",
+  "tecInt_componenti_e_responsabilita",
+  "tecInt_team",
+  "tecInt_istruzioni_della_skill",
+  "tecInt_comandi_eseguiti_dalla",
+  "roadCli_le_tappe_del",
+  "roadCli_prossimi_passi",
+  "roadCli_cosa_serve_da",
+  "roadCli_consegne_effettuate",
+  "roadCli_come_si_chiede",
+  "funzCli_cosa_fa_il",
+  "funzCli_benefici_per_voi",
+  "funzCli_obiettivi_misurabili",
+  "funzCli_richieste_raccolte_in",
+  "funzCli_come_si_chiede",
+  "tecCli_come_funziona_in",
+  "tecCli_prestazioni_e_disponibilita",
+  "tecCli_ambiti_inclusi_e",
+  "tecCli_come_si_chiede",
+];
+const sezioniAttive = (lista) => lista.filter((id) => CFG.sezioni[id]);
+/* Se la configurazione le spegne tutte si torna alla prima: meglio una scheda in
+   più del previsto che una pagina senza contenuti. */
+const PRIMA_VISTA = sezioniAttive(SEZIONI_INTERNE.concat(SEZIONI_CLIENTE))[0] || "sal";
+
+class Component extends DCLogic {
+  /* I dati arrivano da roadmap.data.js, caricato come script classico prima di questa
+     logica: sono già disponibili al primo render, senza fetch e senza server locale. */
+  state = {
+    modo: SEZIONI_CLIENTE.indexOf(PRIMA_VISTA) >= 0 ? "cliente" : "interno",
+    vista: PRIMA_VISTA,
+    d: (typeof window !== "undefined" && window.roadmap) || null,
+    /* Emissione mostrata: l'ultima, cioè quella che build.js ha appena scritto.
+       Le precedenti stanno in window.dossierStorico, dentro il file emesso. */
+    iVer: -1,
+    tema: "light",
+    /* "<blocco>.<campo>" → valori selezionati. Chiave assente = tutti selezionati:
+       lo stato vuoto è il documento intero, e ci si torna sempre. */
+    filtri: {},
+    /* id dei blocchi compressi. Vuoto = tutto espanso, che è come la pagina
+       si apre, si stampa e si esporta. */
+    chiusi: {},
+  };
+
+  /* Lo storico c'è solo nei file emessi da build.js: aprendo la cartella di
+     lavoro la tendina non compare e si vedono i dati di roadmap.data.js. */
+  storico() {
+    const s = typeof window !== "undefined" && window.dossierStorico;
+    return Array.isArray(s) && s.length ? s : [];
+  }
+
+  componentDidMount() {
+    const st = this.storico();
+    if (st.length) {
+      const ultima = st.length - 1;
+      this.setState({ iVer: ultima, d: st[ultima].dati || this.state.d });
+    }
+
+    /* I prop valgono "config" finché non si forzano dall'editor: in quel caso vincono
+       sulla configurazione, altrimenti comanda dossier.config.js. */
+    const vp = this.props.vistaIniziale;
+    const vi = vp && vp !== "config" ? vp : CFG.vistaIniziale;
+    if (vi && CFG.sezioni[vi] && vi !== this.state.vista) {
+      this.setState({ vista: vi, modo: /Cli$/.test(vi) ? "cliente" : "interno" });
+    }
+
+    let tema = null;
+    try { tema = localStorage.getItem("dossier.tema"); } catch (e) {}
+    const tp = this.props.temaIniziale;
+    const forzato = tp && tp !== "config" ? tp : CFG.temaIniziale;
+    if (forzato === "light" || forzato === "dark") tema = forzato;
+    if (!tema) {
+      tema = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    this.applicaTema(tema);
+    this.setState({ tema: tema });
+
+    // Ctrl+P: la stampa è sempre in tema chiaro
+    this._beforePrint = () => {
+      if (this.state.tema === "dark") {
+        this._temaPrePrint = "dark";
+        this.setState({ tema: "light" });
+      }
+    };
+    this._afterPrint = () => {
+      if (this._temaPrePrint) {
+        this.setState({ tema: this._temaPrePrint });
+        this._temaPrePrint = null;
+      }
+    };
+    window.addEventListener("beforeprint", this._beforePrint);
+    window.addEventListener("afterprint", this._afterPrint);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("beforeprint", this._beforePrint);
+    window.removeEventListener("afterprint", this._afterPrint);
+  }
+
+  applicaTema(t) {
+    try { document.body.style.background = t === "dark" ? "#15171a" : "#f4f2ee"; } catch (e) {}
+    try { localStorage.setItem("dossier.tema", t); } catch (e) {}
+  }
+
+  /* Il logo è opzionale: senza, l'intestazione parte direttamente dal titolo.
+     La placca chiara dietro al logo serve solo in tema scuro, e solo se richiesta. */
+  logoImg(tema, conPlacca) {
+    if (!CFG.logo) return "";
+    const img = '<img src="' + CFG.logo + '" alt="' + CFG.logoAlt.replace(/"/g, "&quot;") +
+      '" style="display:block;height:' + CFG.logoAltezza + 'px;width:auto">';
+    if (!conPlacca) return img;
+    return '<span style="display:inline-flex;padding:' + this.logoPad(tema) +
+      ";background:" + this.logoBg(tema) + ';border-radius:6px">' + img + "</span>";
+  }
+
+  logoPad(tema) { return tema === "dark" && CFG.logoPlacca ? "7px 11px" : "0"; }
+  logoBg(tema) { return tema === "dark" && CFG.logoPlacca ? "#f4f5f7" : "transparent"; }
+
+  /* "SC Italia · Roadmap cliente" oppure solo "Roadmap cliente" se l'organizzazione
+     non è configurata: nessun marchio compare per default. */
+  conOrg(testo) {
+    return CFG.organizzazione ? CFG.organizzazione + " · " + testo : testo;
+  }
+
+  vars(t) {
+    return t === "dark"
+      ? "--bg:#15171a;--card:#1d2024;--ink:#eceef1;--onink:#15171a;--body:#c4c8ce;--ink2:#a2a8b0;--ink3:#868d96;--ink4:#6d737b;--bd:#2c3036;--bd2:#272b30;--rule:#2c3036;--chip:#23272c;--tag:#272c32;--thead:#20242a;--track:#20242a"
+      : "--bg:#f4f2ee;--card:#fffefb;--ink:#23211e;--onink:#f6f4f0;--body:#4a463f;--ink2:#6e6a62;--ink3:#8a857c;--ink4:#a9a39a;--bd:#e4e0d8;--bd2:#ece8e0;--rule:#ddd8ce;--chip:#e9e5dd;--tag:#efece5;--thead:#faf8f4;--track:#f7f5f1";
+  }
+
+  nomeFile() {
+    const pr = (this.state.d || {}).progetto || {};
+    const map = {
+      sal: "roadmap-interna-sal", funzInt: "funzionale-interna", tecInt: "tecnica-interna",
+      roadCli: "roadmap-cliente", funzCli: "funzionale-cliente", tecCli: "tecnica-cliente",
+    };
+    return [(pr.codice || "progetto").toLowerCase(), map[this.state.vista] || "sezione", (pr.aggiornatoIl || "")].filter(Boolean).join("_");
+  }
+
+  /* Esegue fn() con il tema chiaro forzato (export e stampa sono sempre in chiaro),
+     poi ripristina il tema scelto dall'utente. */
+  conTemaChiaro(fn) {
+    const orig = this.state.tema;
+    if (orig !== "dark") return Promise.resolve(fn()).then((r) => r);
+    return new Promise((ok) => {
+      this.setState({ tema: "light" }, () => setTimeout(() => ok(), 60));
+    })
+      .then(() => fn())
+      .then((r) => {
+        this.setState({ tema: orig });
+        return r;
+      })
+      .catch((e) => {
+        this.setState({ tema: orig });
+        throw e;
+      });
+  }
+
+  stampa() {
+    this.conTemaChiaro(
+      () =>
+        new Promise((ok) => {
+          window.print();
+          setTimeout(ok, 300);
+        })
+    );
+  }
+
+  caricaHtml2pdf() {
+    if (window.html2pdf) return Promise.resolve(window.html2pdf);
+    if (this._h2p) return this._h2p;
+    this._h2p = new Promise((ok, ko) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      s.onload = () => ok(window.html2pdf);
+      s.onerror = () => ko(new Error("html2pdf non disponibile"));
+      document.head.appendChild(s);
+    });
+    return this._h2p;
+  }
+
+  /* HTML della sezione visibile, ripulito dai comandi: in un file esportato i tag
+     di filtro non sono cliccabili. Dove un filtro è attivo resta però scritto
+     quale: chi riceve il documento deve sapere che l'elenco è parziale. */
+  areaHtml() {
+    if (!this.area) return "";
+    const c = this.area.cloneNode(true);
+    c.querySelectorAll("[data-filtro]").forEach((el) => {
+      const r = el.getAttribute("data-filtro");
+      if (!r) {
+        el.remove();
+        return;
+      }
+      el.removeAttribute("data-noprint");
+      el.innerHTML =
+        '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink4)">Filtro attivo — ' +
+        r.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span>";
+    });
+    /* Un blocco compresso è chiuso solo a video: nel file che esce dev'esserci
+       tutto, altrimenti il destinatario legge un documento monco. */
+    c.querySelectorAll("[data-corpo]").forEach((el) => { el.style.display = "block"; });
+    c.querySelectorAll("[data-chevron]").forEach((el) => el.remove());
+    c.querySelectorAll("[data-noprint]").forEach((el) => el.remove());
+    return c.innerHTML;
+  }
+
+  /* Contenitore fuori schermo con la sezione corrente, intestazione e piè di pagina,
+     sempre a tema chiaro e su fondo bianco: base per PDF ed export HTML. */
+  blocco() {
+    const pr = (this.state.d || {}).progetto || {};
+    const titolo = this.etichettaVista(this.state.vista);
+    const box = document.createElement("div");
+    // 1058px ≈ A4 orizzontale (297mm) meno i margini: evita contenuto tagliato nel PDF
+    box.setAttribute("style", this.vars("light") + ";background:#ffffff;color:var(--ink);width:1058px;padding:0;font-family:'IBM Plex Sans',system-ui,sans-serif");
+    box.innerHTML =
+      '<header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;padding-bottom:18px;margin-bottom:24px;border-bottom:1px solid var(--rule)">' +
+      '<div><div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">' +
+      this.logoImg("light", false) +
+      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">' + titolo + "</span></div>" +
+      '<h1 style="margin:0 0 4px;font-size:28px;font-weight:600;letter-spacing:-0.01em">' + (pr.nome || "") + "</h1>" +
+      '<div style="font-size:14px;color:var(--ink2)">' + (pr.cliente || "") + "</div></div>" +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink3);text-align:right">' +
+      (pr.codice || "") + "<br>aggiornato al " + this.fmt(pr.aggiornatoIl) + "</div></header>" +
+      this.areaHtml() +
+      '<footer style="margin-top:32px;padding-top:14px;border-top:1px solid var(--rule);font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink4);display:flex;gap:16px;justify-content:space-between">' +
+      "<span>" + this.conOrg(titolo) + "</span><span>" + (pr.nome || "") + " · " + (pr.versioneCorrente || "") + "</span></footer>";
+
+    // nessun contenitore deve ritagliare: nel PDF l'overflow non è scrollabile
+    box.querySelectorAll("*").forEach((el) => {
+      const o = getComputedStyle(el).overflowX;
+      if (o === "auto" || o === "scroll" || o === "hidden") {
+        el.style.overflow = "visible";
+        if (el.style.minWidth) el.style.minWidth = "0";
+      }
+      if (parseFloat(getComputedStyle(el).minWidth) > 1000) el.style.minWidth = "0";
+    });
+
+    // una sezione per pagina, blocchi non spezzati
+    box.querySelectorAll("section").forEach((sec, i) => {
+      sec.style.breakInside = "avoid";
+      sec.style.pageBreakInside = "avoid";
+      if (i > 0) {
+        sec.style.breakBefore = "page";
+        sec.style.pageBreakBefore = "always";
+      }
+    });
+    return box;
+  }
+
+  salvaPdf() {
+    this.conTemaChiaro(() =>
+      this.caricaHtml2pdf().then((html2pdf) => {
+        const box = this.blocco();
+        const wrap = document.createElement("div");
+        wrap.setAttribute("style", "position:fixed;left:-20000px;top:0;background:#ffffff");
+        wrap.appendChild(box);
+        document.body.appendChild(wrap);
+        return html2pdf()
+          .set({
+            filename: this.nomeFile() + ".pdf",
+            margin: [10, 10, 12, 10],
+            image: { type: "jpeg", quality: 0.96 },
+            html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true, width: 1058, windowWidth: 1058 },
+            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+            pagebreak: { mode: ["css", "legacy"], avoid: ["section", "tr"] },
+          })
+          .from(box)
+          .save()
+          .then(() => wrap.remove())
+          .catch((e) => {
+            wrap.remove();
+            throw e;
+          });
+      })
+    ).catch((e) => {
+      console.error(e);
+      window.alert("Generazione PDF non disponibile (serve connessione). Usa il pulsante “Stampa”.");
+    });
+  }
+
+  esporta() {
+    const area = this.area;
+    if (!area) return;
+    const pr = (this.state.d || {}).progetto || {};
+    const t = this.state.tema;
+    const titolo = this.etichettaVista(this.state.vista);
+    const doc =
+      '<!DOCTYPE html>\n<html lang="it"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      "<title>" + (pr.nome || "Roadmap") + " — " + titolo + "</title>" +
+      '<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">' +
+      "<style>*{box-sizing:border-box}html,body{margin:0;background:" + (t === "dark" ? "#15171a" : "#f4f2ee") +
+      "}body{font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}" +
+      "a{color:" + (t === "dark" ? "#8fbcf0" : "#2f66b3") + ";text-decoration:none}" +
+      "@media print{body{background:#fff!important}}</style></head><body>" +
+      '<div style="' + this.vars(t) + ';background:var(--bg);color:var(--ink);min-height:100vh">' +
+      '<div style="max-width:1320px;margin:0 auto;padding:28px 24px 64px">' +
+      '<header style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;padding-bottom:20px;margin-bottom:26px;border-bottom:1px solid var(--rule)">' +
+      '<div><div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">' +
+      this.logoImg(t, true) +
+      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)">' + titolo + "</span></div>" +
+      '<h1 style="margin:0 0 4px;font-size:30px;font-weight:600;letter-spacing:-0.01em">' + (pr.nome || "") + "</h1>" +
+      '<div style="font-size:14px;color:var(--ink2)">' + (pr.cliente || "") + "</div></div>" +
+      '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink3);text-align:right">' +
+      (pr.codice || "") + "<br>aggiornato al " + this.fmt(pr.aggiornatoIl) + "</div></header>" +
+      this.areaHtml() +
+      '<footer style="margin-top:40px;padding-top:16px;border-top:1px solid var(--rule);font-family:\'IBM Plex Mono\',monospace;font-size:11px;color:var(--ink4);display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between">' +
+      "<span>" + this.conOrg(titolo) + "</span><span>" + (pr.nome || "") + " · " + (pr.versioneCorrente || "") + "</span></footer>" +
+      "</div></div></body></html>";
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([doc], { type: "text/html" }));
+    a.download = this.nomeFile() + ".html";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+
+  /* "v20260921.02 · 21/09/2026 09:56 · 1.4.0": in testa l'identificativo
+     dell'emissione — lo stesso che nomina i file datati già consegnati, così la
+     riga della tendina e il file si riconoscono a vicenda — poi quando è uscita e
+     la versione del progetto di allora, che resta la stessa per più emissioni.
+     L'ora compare solo dove in un giorno ce n'è più d'una: senza, due righe
+     sarebbero indistinguibili. */
+  etichettaVersione(v, tutte) {
+    if (!v) return "";
+    const g = String(v.emessoIl || "").slice(0, 10);
+    const ora = String(v.emessoIl || "").slice(11, 16);
+    const piuNelGiorno = (tutte || []).filter((x) => String(x.emessoIl || "").slice(0, 10) === g).length > 1;
+    const quando = this.fmt(g) + (piuNelGiorno && ora ? " " + ora : "");
+    /* Le emissioni incorporate da un file precedente non hanno un identificativo
+       di questa forma: lì resta la data, che è l'unica cosa certa. */
+    const id = /^v[0-9]{8}[.][0-9]{2}$/.test(String(v.id || "")) ? String(v.id) : "";
+    return (id ? id + " · " : "") + quando + (v.versione ? " · " + v.versione : "");
+  }
+
+  etichettaVista(id) {
+    return {
+      sal: "Roadmap interna & SAL", funzInt: "Funzionale interna", tecInt: "Tecnica interna",
+      roadCli: "Roadmap cliente", funzCli: "Funzionale cliente", tecCli: "Tecnica cliente",
+    }[id] || "Sezione";
+  }
+
+  fmt(iso) {
+    if (!iso || iso.length < 10) return iso || "—";
+    const [y, m, g] = iso.split("-");
+    return g + "/" + m + "/" + y;
+  }
+
+  tone(key) {
+    const chiaro = {
+      verde: { bg: "#e2f3e8", fg: "#196b3f", solid: "#3d9a66" },
+      blu: { bg: "#e3eefb", fg: "#21508f", solid: "#3f78c4" },
+      ambra: { bg: "#f8ecd8", fg: "#7e5412", solid: "#cf9531" },
+      rosso: { bg: "#fbe7e2", fg: "#9c3520", solid: "#c8553a" },
+      neutro: { bg: "#efece5", fg: "#6e6a62", solid: "#b8b2a8" },
+    };
+    const scuro = {
+      verde: { bg: "#103a22", fg: "#97e3b2", solid: "#40a06b" },
+      blu: { bg: "#14314f", fg: "#b8d4f5", solid: "#4581cf" },
+      ambra: { bg: "#3c2a0d", fg: "#f2d8a1", solid: "#d59c35" },
+      rosso: { bg: "#45201a", fg: "#f6c3b6", solid: "#d75e42" },
+      neutro: { bg: "#272c32", fg: "#a2a8b0", solid: "#4c535b" },
+    };
+    const t = this.state.tema === "dark" ? scuro : chiaro;
+    return t[key] || t.neutro;
+  }
+
+  statoTone(s) {
+    const k = String(s || "").toLowerCase();
+    if (/complet|approvat|rilasciat|accettat|chius/.test(k)) return this.tone("verde");
+    if (/in corso|in revisione|in analisi|monitorat/.test(k)) return this.tone("blu");
+    if (/blocc|critic|apert|da valutare|da consolidare/.test(k)) return this.tone("rosso");
+    if (/pianificat|bozza|rinviat|a rischio/.test(k)) return this.tone("ambra");
+    return this.tone("neutro");
+  }
+
+  livelloTone(l) {
+    const k = String(l || "").toLowerCase();
+    if (k === "alta") return this.tone("rosso");
+    if (k === "media") return this.tone("ambra");
+    return this.tone("neutro");
+  }
+
+  stampaStato(list) {
+    return (list || []).map((x) => {
+      const t = this.statoTone(x.stato);
+      return Object.assign({}, x, { stBg: t.bg, stFg: t.fg });
+    });
+  }
+
+  /* ---- blocchi comprimibili ------------------------------------------------
+     Il contenuto compresso resta nel DOM con `display:none`: sparisce dalla
+     lettura, non dal documento, e stampa ed export lo riportano fuori. */
+
+  aperture() {
+    const ap = {};
+    BLOCCHI.forEach((id) => {
+      const chiuso = !!this.state.chiusi[id];
+      ap[id] = {
+        display: chiuso ? "none" : "block",
+        freccia: chiuso ? "▸" : "▾",
+        title: chiuso ? "Espandi" : "Comprimi",
+        toggle: () => {
+          const c = Object.assign({}, this.state.chiusi);
+          if (chiuso) delete c[id];
+          else c[id] = true;
+          this.setState({ chiusi: c });
+        },
+      };
+    });
+    return ap;
+  }
+
+  /* Comprimi/espandi tutto agisce sulla sola sezione a video: gli id portano
+     in testa la sezione a cui appartengono. */
+  blocciVista() {
+    return BLOCCHI.filter((id) => id.indexOf(this.state.vista + "_") === 0);
+  }
+
+  toggleTutto() {
+    const ids = this.blocciVista();
+    const qualcunoAperto = ids.some((id) => !this.state.chiusi[id]);
+    const c = Object.assign({}, this.state.chiusi);
+    ids.forEach((id) => {
+      if (qualcunoAperto) c[id] = true;
+      else delete c[id];
+    });
+    this.setState({ chiusi: c });
+  }
+
+  /* ---- filtri a tag --------------------------------------------------------
+     Le opzioni non sono un elenco fisso: sono i valori che compaiono davvero
+     nella lista, nell'ordine in cui compaiono, col numero di voci. Un progetto
+     che non usa "bloccato" non vede il tag "bloccato", e una voce senza valore
+     finisce sotto "—" invece di sparire quando si filtra. */
+
+  valFiltro(riga, campo) {
+    const raw = riga ? riga[campo] : null;
+    const s = raw == null ? "" : String(raw).trim();
+    return s || "—";
+  }
+
+  opzioniFiltro(lista, campo) {
+    const out = [];
+    const idx = {};
+    (lista || []).forEach((riga) => {
+      const v = this.valFiltro(riga, campo);
+      if (idx[v] == null) {
+        idx[v] = out.length;
+        out.push({ valore: v, n: 0 });
+      }
+      out[idx[v]].n++;
+    });
+    return out;
+  }
+
+  /* null = nessuna selezione, cioè tutti. I valori spariti dai dati vengono
+     scartati: un filtro salvato non può nascondere una lista intera. */
+  selFiltro(chiave, opzioni) {
+    const sel = (this.state.filtri || {})[chiave];
+    if (!sel || !sel.length) return null;
+    const vivi = sel.filter((v) => opzioni.some((o) => o.valore === v));
+    return vivi.length && vivi.length < opzioni.length ? vivi : null;
+  }
+
+  /* Multipla: il clic toglie o rimette un tag (dal "tutti" iniziale, toglie il
+     tag cliccato). Singola: il clic isola un valore, un secondo clic sullo
+     stesso torna a tutti. In entrambi i casi la lista non resta mai vuota. */
+  cambiaFiltro(chiave, valore, opzioni) {
+    const sel = this.selFiltro(chiave, opzioni);
+    const tutti = opzioni.map((o) => o.valore);
+    let next;
+    if (CFG.filtri.modalita === "singola") {
+      next = sel && sel.length === 1 && sel[0] === valore ? null : [valore];
+    } else if (!sel) {
+      next = tutti.filter((v) => v !== valore);
+    } else if (sel.indexOf(valore) >= 0) {
+      next = sel.filter((v) => v !== valore);
+    } else {
+      next = tutti.filter((v) => sel.indexOf(v) >= 0 || v === valore);
+    }
+    if (next && (!next.length || next.length === tutti.length)) next = null;
+    const f = Object.assign({}, this.state.filtri);
+    if (next) f[chiave] = next;
+    else delete f[chiave];
+    this.setState({ filtri: f });
+  }
+
+  azzeraFiltro(chiave) {
+    const f = Object.assign({}, this.state.filtri);
+    delete f[chiave];
+    this.setState({ filtri: f });
+  }
+
+  /* Un blocco filtrabile: `campi` sono le dimensioni su cui si filtra
+     ({ campo, label, tono, etichette? }). Restituisce la lista già filtrata,
+     i gruppi di tag per il template e il riassunto testuale che prende il
+     posto dei tag in stampa e negli export. */
+  filtra(chiave, lista, campi, perCliente) {
+    const l = lista || [];
+    const on = CFG.filtri.attivi && (!perCliente || CFG.filtri.cliente);
+    const gruppi = [];
+    const riassunto = [];
+    let out = l;
+    if (on) {
+      (campi || []).forEach((c) => {
+        const opzioni = this.opzioniFiltro(l, c.campo);
+        /* Un solo valore presente: il tag non filtrerebbe niente. */
+        if (opzioni.length < 2) return;
+        const k = chiave + "." + c.campo;
+        const sel = this.selFiltro(k, opzioni);
+        const etic = (v) => (c.etichette && c.etichette[v]) || v;
+        if (sel) {
+          out = out.filter((riga) => sel.indexOf(this.valFiltro(riga, c.campo)) >= 0);
+          riassunto.push(c.label + ": " + sel.map(etic).join(" · "));
+        }
+        gruppi.push({
+          label: c.label,
+          filtrato: !!sel,
+          reset: () => this.azzeraFiltro(k),
+          tag: opzioni.map((o) => {
+            const attivo = !sel || sel.indexOf(o.valore) >= 0;
+            const t =
+              c.tono === "livello" ? this.livelloTone(o.valore)
+              : c.tono === "neutro" ? this.tone("neutro")
+              : this.statoTone(o.valore);
+            return {
+              label: etic(o.valore),
+              n: o.n,
+              title: (attivo ? "Nascondi" : "Mostra") + " «" + etic(o.valore) + "»",
+              bg: attivo ? t.bg : "transparent",
+              fg: attivo ? t.fg : "var(--ink4)",
+              bd: attivo ? "transparent" : "var(--bd)",
+              onClick: () => this.cambiaFiltro(k, o.valore, opzioni),
+            };
+          }),
+        });
+      });
+    }
+    return {
+      mostra: gruppi.length > 0,
+      gruppi: gruppi,
+      lista: out,
+      /* Vuoto quando non si filtra: il titolo del blocco resta come prima. */
+      badge: out.length === l.length ? "" : out.length + " di " + l.length,
+      riassunto: riassunto.join(" — "),
+    };
+  }
+
+  renderVals() {
+    const d = this.state.d;
+    /* Un lato senza sezioni attive non ha pulsante: se il progetto non tiene le
+       viste cliente, l'interruttore interno/cliente sparisce da solo. */
+    const modi = [
+      { id: "interno", label: "Vista interna", sez: SEZIONI_INTERNE },
+      { id: "cliente", label: "Vista cliente", sez: SEZIONI_CLIENTE },
+    ].filter((m) => sezioniAttive(m.sez).length > 0).map((m) => ({
+      label: m.label,
+      bg: this.state.modo === m.id ? "var(--card)" : "transparent",
+      fg: this.state.modo === m.id ? "var(--ink)" : "var(--ink3)",
+      shadow: this.state.modo === m.id ? "0 1px 2px rgba(0,0,0,.08)" : "none",
+      onClick: () =>
+        this.setState({ modo: m.id, vista: sezioniAttive(m.sez)[0] }),
+    }));
+
+    const lato = this.state.modo === "interno" ? SEZIONI_INTERNE : SEZIONI_CLIENTE;
+    const defTabs = sezioniAttive(lato).map((id) => ({ id: id, label: this.etichettaVista(id) }));
+
+    const tabs = defTabs.map((t) => ({
+      label: t.label,
+      bg: this.state.vista === t.id ? "var(--ink)" : "var(--card)",
+      fg: this.state.vista === t.id ? "var(--onink)" : "var(--body)",
+      bd: this.state.vista === t.id ? "var(--ink)" : "var(--bd)",
+      onClick: () => this.setState({ vista: t.id }),
+    }));
+
+    const apertiOra = this.blocciVista().some((id) => !this.state.chiusi[id]);
+
+    /* Emissioni contenute nel file: la tendina compare solo se ce n'è più d'una,
+       e parte sempre dall'ultima. */
+    const st = this.storico();
+    const iVer = this.state.iVer < 0 ? st.length - 1 : Math.min(this.state.iVer, st.length - 1);
+    const vaiA = (i) => {
+      const v = st[i];
+      if (v) this.setState({ iVer: i, d: v.dati });
+    };
+
+    const base = {
+      modi,
+      tabs,
+      haVersioni: st.length > 1,
+      versioni: st.map((v, i) => ({ valore: String(i), label: this.etichettaVersione(v, st) })),
+      verSel: String(iVer),
+      cambiaVersione: (e) => vaiA(Number(e && e.target ? e.target.value : e)),
+      /* Con una emissione vecchia a video il documento non è quello corrente:
+         va detto, o si legge uno stato di progetto superato credendolo di oggi. */
+      nonUltima: st.length > 1 && iVer < st.length - 1,
+      versioneLabel: this.etichettaVersione(st[iVer], st),
+      ultimaLabel: this.etichettaVersione(st[st.length - 1], st),
+      vaiUltima: () => vaiA(st.length - 1),
+      /* Stato di ogni blocco comprimibile, letto dal template come
+         `ap.<id>.display` / `.freccia` / `.toggle`. */
+      ap: this.aperture(),
+      toggleTutto: () => this.toggleTutto(),
+      toggleTuttoLabel: apertiOra ? "Comprimi tutto" : "Espandi tutto",
+      /* Branding da dossier.config.js: logo vuoto = intestazione senza immagine.
+         Un data:URI funziona anche nel file unico e negli export del browser. */
+      haLogo: !!CFG.logo,
+      logoSrc: CFG.logo,
+      logoAlt: CFG.logoAlt,
+      logoAltezza: CFG.logoAltezza,
+      logoPad: this.logoPad(this.state.tema),
+      logoBg: this.logoBg(this.state.tema),
+      piedeSinistro: this.conOrg("i contenuti vivono in roadmap.data.js"),
+      tema: this.state.tema,
+      temaLabel: this.state.tema === "dark" ? "☀ Chiaro" : "☾ Scuro",
+      toggleTema: () => {
+        const t = this.state.tema === "dark" ? "light" : "dark";
+        this.applicaTema(t);
+        this.setState({ tema: t });
+      },
+      vistaLabel: this.etichettaVista(this.state.vista),
+      areaRef: (el) => { this.area = el; },
+      esportaHtml: () => this.conTemaChiaro(() => this.esporta()),
+      esportaPdf: () => this.stampa(),
+      mostraEsport: this.props.mostraEsportazione === "config" || this.props.mostraEsportazione == null
+        ? CFG.mostraEsportazione
+        : this.props.mostraEsportazione !== "no" && this.props.mostraEsportazione !== false,
+      caricamento: !d,
+      isSal: !!d && CFG.sezioni.sal && this.state.vista === "sal",
+      isFunzInt: !!d && CFG.sezioni.funzInt && this.state.vista === "funzInt",
+      isTecInt: !!d && CFG.sezioni.tecInt && this.state.vista === "tecInt",
+      isRoadCli: !!d && CFG.sezioni.roadCli && this.state.vista === "roadCli",
+      isFunzCli: !!d && CFG.sezioni.funzCli && this.state.vista === "funzCli",
+      isTecCli: !!d && CFG.sezioni.tecCli && this.state.vista === "tecCli",
+    };
+    if (!d) return Object.assign(base, { p: {} });
+
+    const pr = d.progetto || {};
+    const saluteT = this.statoTone(pr.salute);
+
+    // ---- timeline -----------------------------------------------------------
+    const fasiRaw = d.fasi || [];
+    const t0 = Math.min.apply(null, fasiRaw.map((f) => +new Date(f.da)));
+    const t1 = Math.max.apply(null, fasiRaw.map((f) => +new Date(f.a)));
+    const span = Math.max(t1 - t0, 1);
+    const pct = (ms) => ((ms - t0) / span) * 100;
+
+    const fasi = fasiRaw.map((f) => {
+      const a = +new Date(f.da);
+      const b = +new Date(f.a);
+      const t = this.statoTone(f.stato);
+      const w = Math.max(((b - a) / span) * 100, 3);
+      return {
+        labelLeft: "calc(" + (pct(a) + w).toFixed(2) + "% + 8px)",
+        nome: f.nome,
+        stato: f.stato,
+        milestone: f.milestone,
+        dateStr: this.fmt(f.da) + " → " + this.fmt(f.a),
+        avanzamentoStr: (f.avanzamento || 0) + "%",
+        left: pct(a).toFixed(2) + "%",
+        width: w.toFixed(2) + "%",
+        barBg: t.bg,
+        barFill: t.solid,
+        barText: t.fg,
+      };
+    });
+
+    const mesi = [];
+    const cur = new Date(t0);
+    cur.setDate(1);
+    const nomi = ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"];
+    while (+cur <= t1) {
+      const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      mesi.push({
+        label: nomi[cur.getMonth()],
+        left: Math.max(pct(+cur), 0).toFixed(2) + "%",
+        width: (((Math.min(+next, t1) - Math.max(+cur, t0)) / span) * 100).toFixed(2) + "%",
+      });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+
+    const oggi = +new Date();
+    const oggiLeft = Math.min(Math.max(pct(oggi), 0), 100).toFixed(2) + "%";
+
+    // ---- liste --------------------------------------------------------------
+    const puntiAperti = (d.puntiAperti || []).map((o) => {
+      const t = this.livelloTone(o.priorita);
+      return Object.assign({}, o, { prBg: t.bg, prFg: t.fg, scadenzaStr: this.fmt(o.scadenza) });
+    });
+    const puntiChiusi = (d.puntiChiusi || []).map((c) =>
+      Object.assign({}, c, { chiusoIlStr: this.fmt(c.chiusoIl) })
+    );
+    const rilasci = this.stampaStato(d.rilasci).map((r) =>
+      Object.assign({}, r, {
+        dataStr: this.fmt(r.data),
+        contenutiStr: (r.contenuti || []).join(" · "),
+      })
+    );
+    const richieste = this.stampaStato(d.richiesteCliente).map((q) =>
+      Object.assign({}, q, { dataStr: this.fmt(q.data) })
+    );
+    const analisi = this.stampaStato(d.analisi).map((a) =>
+      Object.assign({}, a, { aggiornatoStr: this.fmt(a.aggiornato) })
+    );
+    const rischi = (d.rischi || []).map((x) => {
+      const sev =
+        x.impatto === "alta" && x.probabilita === "alta"
+          ? "critico"
+          : x.impatto === "alta" || x.probabilita === "alta"
+          ? "alto"
+          : "medio";
+      const t = sev === "critico" ? this.tone("rosso") : sev === "alto" ? this.tone("ambra") : this.tone("neutro");
+      return Object.assign({}, x, {
+        severita: sev + " · P " + x.probabilita + " / I " + x.impatto,
+        svBg: t.bg,
+        svFg: t.fg,
+      });
+    });
+    const decisioni = (d.decisioni || []).map((x) =>
+      Object.assign({}, x, { dataStr: this.fmt(x.data) })
+    );
+    const changelog = (d.changelog || []).map((x) =>
+      Object.assign({}, x, { dataStr: this.fmt(x.data) })
+    );
+
+    const ti = d.tecnicaInterna || {};
+    const tecInt = Object.assign({}, ti, {
+      componenti: this.stampaStato(ti.componenti),
+      ambienti: this.stampaStato(ti.ambienti),
+      debitoTecnico: (ti.debitoTecnico || []).map((x) => {
+        const t = this.livelloTone(x.impatto);
+        return Object.assign({}, x, { imBg: t.bg, imFg: t.fg });
+      }),
+    });
+
+    const fi = d.funzionaleInterna || {};
+    const funzInt = Object.assign({}, fi, {
+      moduli: this.stampaStato(fi.moduli),
+      flussi: this.stampaStato(fi.flussi),
+    });
+
+    const etichette = ETICHETTE_CLIENTE;
+    const cf = d.clienteFunzionale || {};
+    const cliFunz = Object.assign({}, cf, {
+      cosaDisponibile: (cf.cosaDisponibile || []).map((f) => {
+        const t = this.statoTone(f.stato);
+        return Object.assign({}, f, { stBg: t.bg, stFg: t.fg, statoLabel: etichette[f.stato] || f.stato });
+      }),
+    });
+
+    const cr = d.clienteRoadmap || {};
+    const cliRoad = Object.assign({}, cr, {
+      tappe: (cr.tappe || []).map((t) => {
+        const tn = this.statoTone(t.stato);
+        return Object.assign({}, t, {
+          stBg: tn.bg,
+          stFg: tn.fg,
+          dot: tn.solid,
+          statoLabel: etichette[t.stato] || t.stato,
+        });
+      }),
+    });
+
+    // ---- filtri -------------------------------------------------------------
+    /* Un blocco per elenco filtrabile: i tag restano sulle liste complete, le
+       liste passate al template sono quelle filtrate. Le tessere in alto
+       (avanzamento, punti, salute) restano invece sui totali: sono lo stato del
+       progetto, non della vista. */
+    const fPuntiAperti = this.filtra("puntiAperti", puntiAperti, [
+      { campo: "priorita", label: "Priorità", tono: "livello" },
+      { campo: "tipo", label: "Tipo", tono: "neutro" },
+    ]);
+    const fPuntiChiusi = this.filtra("puntiChiusi", puntiChiusi, [
+      { campo: "tipo", label: "Tipo", tono: "neutro" },
+    ]);
+    const fRilasci = this.filtra("rilasci", rilasci, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+      { campo: "ambiente", label: "Ambiente", tono: "neutro" },
+    ]);
+    const fRichieste = this.filtra("richieste", richieste, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+      { campo: "impatto", label: "Impatto", tono: "livello" },
+    ]);
+    const fRischi = this.filtra("rischi", rischi, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+      { campo: "impatto", label: "Impatto", tono: "livello" },
+    ]);
+    const fAnalisi = this.filtra("analisi", analisi, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+    ]);
+    const fModuli = this.filtra("moduli", funzInt.moduli, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+    ]);
+    const fFlussi = this.filtra("flussi", funzInt.flussi, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+    ]);
+    const fComponenti = this.filtra("componenti", tecInt.componenti, [
+      { campo: "stato", label: "Stato", tono: "stato" },
+    ]);
+    const fDebito = this.filtra("debito", tecInt.debitoTecnico, [
+      { campo: "impatto", label: "Impatto", tono: "livello" },
+    ]);
+    /* Sezioni cliente: spente per default (vista.roadmap.filtri.cliente).
+       Il documento che esce dall'azienda si legge dall'inizio alla fine. */
+    const cliEtic = { etichette: ETICHETTE_CLIENTE };
+    const fTappe = this.filtra("tappe", cliRoad.tappe,
+      [Object.assign({ campo: "stato", label: "Stato", tono: "stato" }, cliEtic)], true);
+    const fDisponibile = this.filtra("cosaDisponibile", cliFunz.cosaDisponibile,
+      [Object.assign({ campo: "stato", label: "Stato", tono: "stato" }, cliEtic)], true);
+    const fRilasciCli = this.filtra("rilasciCliente", rilasci.filter((r) => r.ambiente !== "Stage"),
+      [{ campo: "stato", label: "Stato", tono: "stato" }], true);
+    const fRichiesteCli = this.filtra("richiesteCliente", richieste,
+      [{ campo: "stato", label: "Stato", tono: "stato" }], true);
+
+    return Object.assign(base, {
+      p: {
+        nome: pr.nome,
+        cliente: pr.cliente,
+        codice: pr.codice,
+        owner: pr.owner,
+        metodologia: pr.metodologia,
+        versioneCorrente: pr.versioneCorrente,
+        prossimoRilascio: pr.prossimoRilascio,
+        avanzamentoStr: (pr.avanzamento || 0) + "%",
+        salute: pr.salute,
+        saluteFg: saluteT.fg,
+        aggiornatoIl: this.fmt(pr.aggiornatoIl),
+        fonte: pr.fonteUltimoAggiornamento,
+        periodo: this.fmt(pr.inizio) + " → " + this.fmt(pr.fine),
+      },
+      obiettivo: d.obiettivo || {},
+      kpi: (d.obiettivo || {}).kpi || [],
+      team: d.team || [],
+      fasi,
+      mesi,
+      oggiLeft,
+      puntiAperti: fPuntiAperti.lista,
+      puntiChiusi: fPuntiChiusi.lista,
+      nAperti: puntiAperti.length,
+      nChiusi: puntiChiusi.length,
+      nAlta: puntiAperti.filter((o) => o.priorita === "alta").length,
+      rilasci: fRilasci.lista,
+      rilasciCliente: fRilasciCli.lista,
+      richieste: fRichieste.lista,
+      richiesteCliente: fRichiesteCli.lista,
+      analisi: fAnalisi.lista,
+      rischi: fRischi.lista,
+      decisioni,
+      changelog,
+      tecInt: Object.assign({}, tecInt, { componenti: fComponenti.lista, debitoTecnico: fDebito.lista }),
+      funzInt: Object.assign({}, funzInt, { moduli: fModuli.lista, flussi: fFlussi.lista }),
+      cliFunz: Object.assign({}, cliFunz, { cosaDisponibile: fDisponibile.lista }),
+      cliRoad: Object.assign({}, cliRoad, { tappe: fTappe.lista }),
+      cliTec: d.clienteTecnica || {},
+      fPuntiAperti, fPuntiChiusi, fRilasci, fRichieste, fRischi, fAnalisi,
+      fModuli, fFlussi, fComponenti, fDebito,
+      fTappe, fDisponibile, fRilasciCli, fRichiesteCli,
+      /* Istruzioni della skill: stesso blocco in tutte le sezioni interne
+         (comandi) e in tutte quelle cliente (clienteComandi). */
+      comandi: d.comandi || {},
+      cliComandi: d.clienteComandi || {},
+    });
+  }
+}
+
+</script>
+</body>
+</html>

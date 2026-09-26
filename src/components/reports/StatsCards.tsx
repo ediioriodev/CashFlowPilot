@@ -1,67 +1,63 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { TrendStats } from '@/types/reports';
-import { formatCurrency } from '@/lib/formatUtils';
-import { ArrowUp, ArrowDown, TrendingUp, Wallet } from 'lucide-react';
+import React from "react";
+import { ArrowDownLeft, ArrowUpRight, TrendingUp, Wallet } from "lucide-react";
+import { TrendStats } from "@/types/reports";
+import { formatCurrency } from "@/lib/formatUtils";
+import { Card, Eyebrow, Skeleton } from "@/components/ui/kit";
 
 interface StatsCardsProps {
   trendData: TrendStats[];
+  loading?: boolean;
 }
 
-export default function StatsCards({ trendData }: StatsCardsProps) {
-  const defaults = { income: 0, expense: 0, balance: 0 };
-  
-  const stats = trendData.reduce((acc, curr) => {
-    acc.income += Number(curr.income);
-    acc.expense += Number(curr.expense);
-    return acc;
-  }, { ...defaults });
-  
-  stats.balance = stats.income - stats.expense;
+export default function StatsCards({ trendData, loading }: StatsCardsProps) {
+  const stats = trendData.reduce(
+    (acc, curr) => {
+      acc.income += Number(curr.income);
+      acc.expense += Number(curr.expense);
+      return acc;
+    },
+    { income: 0, expense: 0 }
+  );
+  const balance = stats.income - stats.expense;
+  const perDay = trendData.length ? stats.expense / trendData.length : 0;
+
+  const cards = [
+    { label: "Entrate", value: stats.income, icon: ArrowDownLeft, color: "var(--pos)", soft: "var(--pos-soft)" },
+    { label: "Uscite", value: stats.expense, icon: ArrowUpRight, color: "var(--neg)", soft: "var(--neg-soft)" },
+    {
+      label: "Saldo del periodo",
+      value: balance,
+      icon: Wallet,
+      color: balance >= 0 ? "var(--pos)" : "var(--neg)",
+      soft: balance >= 0 ? "var(--pos-soft)" : "var(--neg-soft)",
+    },
+    { label: "Media uscite al giorno", value: perDay, icon: TrendingUp, color: "var(--text)", soft: "var(--surface-3)" },
+  ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <StatCard 
-        label="Entrate Totali" 
-        value={stats.income} 
-        icon={<ArrowUp className="w-5 h-5 text-green-500" />}
-        color="text-green-600"
-      />
-      <StatCard 
-        label="Uscite Totali" 
-        value={stats.expense} 
-        icon={<ArrowDown className="w-5 h-5 text-red-500" />}
-        color="text-red-600"
-      />
-      <StatCard 
-        label="Saldo Periodo" 
-        value={stats.balance} 
-        icon={<Wallet className="w-5 h-5 text-blue-500" />}
-        color={stats.balance >= 0 ? "text-blue-600" : "text-red-500"}
-      />
-      <StatCard 
-        label="Media Spese (giorno)" 
-        value={trendData.length ? stats.expense / trendData.length : 0} 
-        icon={<TrendingUp className="w-5 h-5 text-purple-500" />}
-        color="text-gray-600 dark:text-gray-300"
-      />
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      {cards.map((c) => (
+        <Card key={c.label} className="p-4">
+          <div className="mb-2 flex items-start justify-between gap-2">
+            <Eyebrow className="leading-tight">{c.label}</Eyebrow>
+            <span
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+              style={{ background: c.soft, color: c.color }}
+            >
+              <c.icon className="h-4 w-4" aria-hidden />
+            </span>
+          </div>
+          {loading ? (
+            <Skeleton className="h-6 w-24" />
+          ) : (
+            <p className="tnum text-xl font-bold" style={{ color: c.color }}>
+              {formatCurrency(c.value)}
+            </p>
+          )}
+        </Card>
+      ))}
     </div>
   );
-}
-
-function StatCard({ label, value, icon, color }: { label: string, value: number, icon: React.ReactNode, color: string }) {
-  return (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 font-medium">
-      <div className="flex justify-between items-start mb-2">
-        <span className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider">{label}</span>
-        <div className="p-1.5 bg-gray-50 dark:bg-gray-700 rounded-md">
-          {icon}
-        </div>
-      </div>
-      <div className={`text-xl font-bold ${color}`}>
-        {formatCurrency(value)}
-      </div>
-    </div>
-  )
 }

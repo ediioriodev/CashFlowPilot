@@ -216,6 +216,8 @@ export const expenseService = {
       if (!groupId) throw new Error("Group not found");
       tableName = 'spese';
       payload.group_id = groupId;
+      // null = pagata dal fondo comune (default), uuid = anticipata da un membro
+      payload.paid_by = expense.paid_by ?? null;
     } else {
       tableName = 'spese_personali';
       // Personal doesn't need group_id
@@ -406,7 +408,9 @@ export const expenseService = {
       note_spese: expense.note_spese,
       data_spesa: expense.data_spesa,
       tipo_transazione: expense.tipo_transazione,
-      confermata: expense.confermata
+      confermata: expense.confermata,
+      // solo sul condiviso: la colonna non esiste su spese_personali
+      paid_by: scope === 'C' ? expense.paid_by : undefined
     };
 
     // Remove undefined keys

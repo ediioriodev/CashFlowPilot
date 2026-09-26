@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
   const lastUserId = useRef<string | null>(null);
 
-  const loadSettingsAndProfile = async (userId: string) => {
+  const loadSettingsAndProfile = async () => {
     try {
       const [settingsData, profileData] = await Promise.all([
         userService.getSettings(),
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user && session.user.id !== lastUserId.current) {
         lastUserId.current = session.user.id;
         // Carica i settings in background senza bloccare il rendering
-        loadSettingsAndProfile(session.user.id).catch(err => console.error("Background data load failed", err));
+        loadSettingsAndProfile().catch(err => console.error("Background data load failed", err));
       }
     };
 
@@ -84,7 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (session.user.id !== lastUserId.current || event === 'SIGNED_IN') {
              lastUserId.current = session.user.id;
              // Don't await this to keep UI responsive
-             loadSettingsAndProfile(session.user.id).catch(console.error);
+             loadSettingsAndProfile().catch(console.error);
           }
         } else {
           lastUserId.current = null;
@@ -115,16 +115,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await userService.updateSettings(newSettings);
       // We could reload here to be sure, but optimistic is fine usually
-    } catch (error: any) {
-      console.error("Failed to update settings:", error?.message ?? error?.code ?? error);
+    } catch (error) {
+      console.error("Failed to update settings:", error instanceof Error ? error.message : error);
       // Revert if needed, but for now just reload
-      if (user) loadSettingsAndProfile(user.id);
+      if (user) loadSettingsAndProfile();
     }
   };
 
   const refreshSettings = async () => {
     if (user) {
-      await loadSettingsAndProfile(user.id);
+      await loadSettingsAndProfile();
     }
   };
 
