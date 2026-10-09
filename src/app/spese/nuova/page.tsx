@@ -109,7 +109,7 @@ export default function NuovaSpesaPage() {
   const { isSimple } = useMode();
   const [dettagliAperti, setDettagliAperti] = useState(false);
   const mostraDettagli =
-    !isSimple || dettagliAperti || ricorrente || !!negozio || !!nota.trim() || !!scontrino;
+    !isSimple || dettagliAperti || ricorrente || !!nota.trim() || !!scontrino;
 
   // Si apre la pagina per scrivere un importo: il fuoco parte da lì.
   useEffect(() => {
@@ -171,7 +171,27 @@ export default function NuovaSpesaPage() {
     return e;
   };
 
-  const submit = async (e: React.FormEvent, andNew = false) => {
+  const svuota = () => {
+    setTipo("spesa");
+    setImporto("");
+    setAmbito("");
+    setNegozio("");
+    setNota("");
+    setPayer(null);
+    setSplits([]);
+    setQuoteValide(true);
+    setScontrino(null);
+    setRicorrente(false);
+    setCadenza("mensile");
+    setDataFine("");
+    setAutoConferma(false);
+    setGiorniSettimana([]);
+    setErrors({});
+    setDettagliAperti(false);
+    importoRef.current?.focus();
+  };
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const found = validate();
     setErrors(found);
@@ -247,16 +267,10 @@ export default function NuovaSpesaPage() {
         action: { label: "Vedi movimenti", onClick: () => router.push("/spese") },
       });
 
-      if (andNew) {
-        setImporto("");
-        setNegozio("");
-        setNota("");
-        setScontrino(null);
-        setErrors({});
-        importoRef.current?.focus();
-      } else {
-        router.push("/spese");
-      }
+      // Si resta qui con il form pulito: le spese si inseriscono spesso a
+      // raffica (lo scontrino della settimana). La data resta, perché di
+      // solito è la stessa; per vederle c'è «Vedi movimenti» nel toast.
+      svuota();
     } catch (err) {
       console.error(err);
       toast.error("Salvataggio non riuscito", {
@@ -423,24 +437,6 @@ export default function NuovaSpesaPage() {
                 <Calendar className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" aria-hidden />
               </div>
             </Field>
-          </div>
-
-          {isSimple && !mostraDettagli && (
-            <button
-              type="button"
-              onClick={() => setDettagliAperti(true)}
-              aria-expanded={false}
-              className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-dashed border-line text-sm font-semibold text-accent hover:bg-surface-2"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              Altri dettagli
-              <span className="font-normal text-faint">· dove, si ripete, scontrino, nota</span>
-            </button>
-          )}
-
-          {mostraDettagli && (
-          <>
-          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Dove" htmlFor="negozio" help="Negozio o beneficiario.">
               <div className="relative">
                 <input
@@ -461,7 +457,38 @@ export default function NuovaSpesaPage() {
             </Field>
           </div>
 
-          {/* ---------- Ricorrenza ---------- */}
+          {isSimple && !mostraDettagli && (
+            <button
+              type="button"
+              onClick={() => setDettagliAperti(true)}
+              aria-expanded={false}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-md border border-dashed border-line text-sm font-semibold text-accent hover:bg-surface-2"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Altri dettagli
+              <span className="font-normal text-faint">· scontrino, nota, si ripete</span>
+            </button>
+          )}
+
+          {mostraDettagli && (
+          <>
+          {/* ---------- Scontrino ---------- */}
+          <ReceiptPicker value={scontrino} onChange={setScontrino} scope={scope} />
+
+          {/* ---------- Nota ---------- */}
+          <Field label="Nota" htmlFor="nota" help="Facoltativa.">
+            <textarea
+              id="nota"
+              rows={2}
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              placeholder="Aggiungi un dettaglio…"
+              className={`${inputClass} min-h-20 py-3`}
+            />
+          </Field>
+
+          {/* ---------- Ricorrenza ----------
+              In fondo: chi la apre ha già scritto tutto il resto. */}
           <Card className="p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -534,21 +561,6 @@ export default function NuovaSpesaPage() {
               </div>
             )}
           </Card>
-
-          {/* ---------- Scontrino ---------- */}
-          <ReceiptPicker value={scontrino} onChange={setScontrino} scope={scope} />
-
-          {/* ---------- Nota ---------- */}
-          <Field label="Nota" htmlFor="nota" help="Facoltativa.">
-            <textarea
-              id="nota"
-              rows={2}
-              value={nota}
-              onChange={(e) => setNota(e.target.value)}
-              placeholder="Aggiungi un dettaglio…"
-              className={`${inputClass} min-h-20 py-3`}
-            />
-          </Field>
           </>
           )}
 
@@ -561,11 +573,8 @@ export default function NuovaSpesaPage() {
               {ricorrente ? "Salva ricorrenza" : "Salva"}
             </Button>
             <div className="mt-2 flex justify-center gap-4 text-xs">
-              <button type="button" onClick={(e) => submit(e, true)} className="min-h-10 px-2 font-semibold text-accent">
-                Salva e aggiungine un&apos;altra
-              </button>
               <button type="button" onClick={() => router.push("/spese")} className="min-h-10 px-2 text-faint">
-                Annulla
+                Torna ai movimenti
               </button>
             </div>
           </div>

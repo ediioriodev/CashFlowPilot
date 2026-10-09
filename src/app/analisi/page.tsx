@@ -405,13 +405,13 @@ export default function AnalisiPage() {
                   <Receipt className="h-4 w-4" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{t.negozio || "Senza nome"}</p>
-                  <p className="truncate text-xs text-faint">
+                  <p className="line-clamp-2 break-words text-sm font-semibold">{t.negozio || "Senza nome"}</p>
+                  <p className="line-clamp-2 break-words text-xs text-faint">
                     {new Date(t.data_spesa + "T00:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
                     {t.note_spese ? ` · ${t.note_spese}` : ""}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p
                     className="tnum text-sm font-bold"
                     style={{

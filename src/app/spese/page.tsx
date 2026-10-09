@@ -459,9 +459,12 @@ function MovimentoRow({
   const futura = t.data_spesa > todayISO();
 
   return (
-    <li className="flex min-h-[68px] items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
+    // Due livelli (OP-052): sopra il nome e l'importo, sotto categoria, chi ha
+    // pagato, stato e azioni. Tutto su una riga lasciava al nome 60–80 px su
+    // un telefono, e le pillole finivano sotto l'importo.
+    <li className="flex gap-3 border-b border-line px-4 py-3 last:border-b-0">
       <span
-        className="grid h-10 w-10 shrink-0 place-items-center rounded-md"
+        className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-md"
         style={{
           background: daConfermare ? "var(--warn-soft)" : entrata ? "var(--pos-soft)" : "var(--surface-3)",
           color: daConfermare ? "var(--warn)" : entrata ? "var(--pos)" : "var(--muted)",
@@ -471,52 +474,55 @@ function MovimentoRow({
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{t.negozio || t.ambito || "Senza nome"}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-faint">
-          {/* senza negozio il titolo è già la categoria: non la si ripete sotto */}
-          {t.negozio && <span className="truncate">{t.ambito || "Senza categoria"}</span>}
-          {t.ricorrente && (
-            <Pill icon={Repeat}>ricorrente</Pill>
-          )}
-          {daConfermare && (
-            <Pill tone="warn" icon={AlertTriangle}>
-              {futura ? "previsto" : "da confermare"}
-            </Pill>
-          )}
-        </p>
-      </div>
-
-      {member ? (
-        <Avatar id={member.userId} name={isMine ? `${member.name} (tu)` : member.name} size={26} />
-      ) : (
-        fondo && (
+        <div className="flex items-start gap-3">
+          <p className="min-w-0 flex-1 line-clamp-2 break-words text-sm font-semibold">
+            {t.negozio || t.ambito || "Senza nome"}
+          </p>
           <span
-            title={`Pagata dal fondo comune (${fondo})`}
-            className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full bg-surface-3 text-faint"
+            className="tnum shrink-0 text-right text-[15px] font-bold"
+            style={{ color: entrata ? "var(--pos)" : "var(--text)", opacity: daConfermare ? 0.65 : 1 }}
           >
-            <Wallet className="h-3.5 w-3.5" aria-hidden />
-            <span className="sr-only">Pagata dal fondo comune</span>
+            {entrata ? "+" : "−"}
+            {formatCurrency(Number(t.importo))}
           </span>
-        )
-      )}
+        </div>
 
-      <span
-        className="tnum shrink-0 text-right text-[15px] font-bold"
-        style={{ color: entrata ? "var(--pos)" : "var(--text)", opacity: daConfermare ? 0.65 : 1 }}
-      >
-        {entrata ? "+" : "−"}
-        {formatCurrency(Number(t.importo))}
-      </span>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-xs text-faint">
+            {member ? (
+              <Avatar id={member.userId} name={isMine ? `${member.name} (tu)` : member.name} size={20} />
+            ) : (
+              fondo && (
+                <span
+                  title={`Pagata dal fondo comune (${fondo})`}
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-surface-3 text-faint"
+                >
+                  <Wallet className="h-3 w-3" aria-hidden />
+                  <span className="sr-only">Pagata dal fondo comune</span>
+                </span>
+              )
+            )}
+            {/* senza negozio il titolo è già la categoria: non la si ripete sotto */}
+            {t.negozio && <span className="min-w-0 break-words">{t.ambito || "Senza categoria"}</span>}
+            {t.ricorrente && <Pill icon={Repeat}>ricorrente</Pill>}
+            {daConfermare && (
+              <Pill tone="warn" icon={AlertTriangle}>
+                {futura ? "previsto" : "da confermare"}
+              </Pill>
+            )}
+          </div>
 
-      <div className="flex shrink-0 items-center">
-        {onReceipt && (
-          <IconButton label="Guarda lo scontrino" icon={Paperclip} onClick={onReceipt} className="h-10 w-10" />
-        )}
-        {daConfermare && (
-          <IconButton label="Conferma il movimento" icon={Check} onClick={onConfirm} disabled={busy} className="text-pos" />
-        )}
-        <IconButton label="Modifica il movimento" icon={Pencil} onClick={onEdit} className="h-10 w-10" />
-        <IconButton label="Elimina il movimento" icon={Trash2} onClick={onDelete} className="h-10 w-10 hover:text-neg" />
+          <div className="-my-1.5 -mr-2 flex shrink-0 items-center self-end">
+            {onReceipt && (
+              <IconButton label="Guarda lo scontrino" icon={Paperclip} onClick={onReceipt} className="h-9 w-9" />
+            )}
+            {daConfermare && (
+              <IconButton label="Conferma il movimento" icon={Check} onClick={onConfirm} disabled={busy} className="h-9 w-9 text-pos" />
+            )}
+            <IconButton label="Modifica il movimento" icon={Pencil} onClick={onEdit} className="h-9 w-9" />
+            <IconButton label="Elimina il movimento" icon={Trash2} onClick={onDelete} className="h-9 w-9 hover:text-neg" />
+          </div>
+        </div>
       </div>
     </li>
   );

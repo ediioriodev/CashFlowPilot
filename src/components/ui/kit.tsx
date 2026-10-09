@@ -170,7 +170,7 @@ export function Pill({
     accent: "bg-accent-soft text-accent",
   }[tone];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-pill px-2 py-1 text-[11px] font-semibold", tones, className)}>
+    <span className={cn("inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-2 py-1 text-[11px] font-semibold", tones, className)}>
       {Icon && <Icon className="h-3 w-3 shrink-0" aria-hidden />}
       {children}
     </span>
@@ -455,8 +455,8 @@ export function CatRow({
       {/* Il nome ha uno spazio minimo e la barra si restringe prima di lui:
           in una colonna stretta la barra fissa lasciava «T.» al posto del nome. */}
       <span className="flex min-w-[5.5rem] flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-semibold">{name}</span>
-        {sub && <span className="truncate text-xs font-normal text-faint">{sub}</span>}
+        <span className="line-clamp-2 break-words text-sm font-semibold">{name}</span>
+        {sub && <span className="break-words text-xs font-normal text-faint">{sub}</span>}
       </span>
       {percent !== undefined && (
         <span className="hidden h-2 w-28 min-w-8 shrink overflow-hidden rounded-pill bg-surface-3 sm:block">

@@ -221,7 +221,7 @@ export default function SplitEditor({
           {members.map((m) => (
             <li key={m.userId} className="flex items-center gap-2.5 text-sm">
               <Avatar id={m.userId} name={m.name} size={24} />
-              <span className="min-w-0 flex-1 truncate">{m.name}</span>
+              <span className="min-w-0 flex-1 line-clamp-2 break-words">{m.name}</span>
               <span className="tnum font-semibold text-muted">
                 {formatCurrency(importo / members.length)}
               </span>
@@ -261,7 +261,7 @@ export default function SplitEditor({
                 return (
                   <li key={s.userId} className="flex items-center gap-2.5 text-sm">
                     <Avatar id={s.userId} name={m?.name ?? "Membro"} size={24} />
-                    <span className="min-w-0 flex-1 truncate">{m?.name ?? "Membro"}</span>
+                    <span className="min-w-0 flex-1 line-clamp-2 break-words">{m?.name ?? "Membro"}</span>
                     <span className="tnum font-semibold text-muted">{formatCurrency(s.quota)}</span>
                   </li>
                 );
@@ -276,7 +276,7 @@ export default function SplitEditor({
           {members.map((m) => (
             <li key={m.userId} className="flex items-center gap-2.5">
               <Avatar id={m.userId} name={m.name} size={26} />
-              <span className="min-w-0 flex-1 truncate text-sm">{m.name}</span>
+              <span className="min-w-0 flex-1 line-clamp-2 break-words text-sm">{m.name}</span>
               <span className="tnum w-20 shrink-0 text-right text-xs text-faint">
                 {formatCurrency(quotaDi(m.userId))}
               </span>

@@ -100,7 +100,7 @@ export default function ReceiptPicker({
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{value.name}</p>
+            <p className="line-clamp-2 break-all text-sm font-semibold">{value.name}</p>
             <p className="tnum text-xs text-faint">{Math.round(value.size / 1024)} KB</p>
           </div>
           <Button size="sm" variant="ghost" icon={X} onClick={() => scegli(null)}>

@@ -49,8 +49,8 @@ export default function PageHeader({
           />
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-bold tracking-tight lg:text-2xl">{title}</h1>
-          {subtitle && <p className="mt-0.5 truncate text-xs text-faint">{subtitle}</p>}
+          <h1 className="line-clamp-2 break-words text-xl font-bold tracking-tight lg:text-2xl">{title}</h1>
+          {subtitle && <p className="mt-0.5 line-clamp-2 break-words text-xs text-faint">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
       </div>

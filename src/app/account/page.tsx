@@ -122,7 +122,7 @@ export default function AccountPage() {
                       <Users className="h-5 w-5" aria-hidden />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold">{profile.group_name || "Gruppo senza nome"}</p>
+                      <p className="line-clamp-2 break-words text-sm font-semibold">{profile.group_name || "Gruppo senza nome"}</p>
                       <p className="text-xs text-faint">Le spese condivise finiscono qui.</p>
                     </div>
                     <Link href="/famiglia">
@@ -149,7 +149,7 @@ export default function AccountPage() {
             <dl className="flex flex-col gap-3 text-sm">
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted">Email</dt>
-                <dd className="truncate font-semibold">{profile?.email}</dd>
+                <dd className="break-all font-semibold">{profile?.email}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted">Ruolo</dt>

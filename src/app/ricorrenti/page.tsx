@@ -326,7 +326,7 @@ function RicorrenzaRow({ item, onApri }: { item: RecurringItem; onApri: () => vo
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{item.name}</p>
+        <p className="line-clamp-2 break-words text-sm font-semibold">{item.name}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-faint">
           {/* senza negozio il nome È la categoria: non la si ripete */}
           {item.category && item.category !== item.name && (

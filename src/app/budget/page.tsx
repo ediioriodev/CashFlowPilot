@@ -278,9 +278,9 @@ export default function BudgetPage() {
                           >
                             {Math.round(b.percentuale)}%
                           </MiniBar>
-                          <span className="w-full truncate text-[12px] font-semibold">{b.categoria}</span>
+                          <span className="w-full line-clamp-2 break-words text-[12px] font-semibold">{b.categoria}</span>
                           <span
-                            className="tnum w-full truncate text-[11px]"
+                            className="tnum w-full break-words text-[11px]"
                             style={{ color: b.residuo >= 0 ? "var(--muted)" : "var(--neg)" }}
                           >
                             {b.residuo >= 0

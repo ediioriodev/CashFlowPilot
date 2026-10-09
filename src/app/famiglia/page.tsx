@@ -257,7 +257,7 @@ export default function FamigliaPage() {
                         <div className="flex items-center gap-3">
                           <Avatar id={m.userId} name={m.name} size={36} />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">
+                            <p className="line-clamp-2 break-words text-sm font-semibold">
                               {m.name}
                               {m.userId === user?.id && <span className="ml-1.5 font-normal text-faint">(tu)</span>}
                             </p>
@@ -418,10 +418,10 @@ export default function FamigliaPage() {
                         <Archive className="h-4 w-4" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">
+                        <p className="break-words text-sm font-semibold">
                           {formatDate(s.periodStart)} – {formatDate(s.periodEnd)}
                         </p>
-                        <p className="truncate text-xs text-faint">
+                        <p className="break-words text-xs text-faint">
                           {s.transfers.length === 0
                             ? "nessun trasferimento"
                             : s.transfers
@@ -454,10 +454,10 @@ export default function FamigliaPage() {
                     <li key={m.userId} className="flex items-center gap-3 border-b border-line py-3 last:border-0">
                       <Avatar id={m.userId} name={m.name} size={36} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{m.name}</p>
+                        <p className="line-clamp-2 break-words text-sm font-semibold">{m.name}</p>
                         <p className="text-xs text-faint">{m.isAdmin ? "Amministratore" : "Membro"}</p>
                       </div>
-                      <span className="tnum text-xs text-faint">
+                      <span className="tnum shrink-0 text-xs text-faint">
                         {m.count} {m.count === 1 ? "anticipo" : "anticipi"}
                       </span>
                     </li>

@@ -286,8 +286,8 @@ export default function OggiPage() {
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{t.negozio || t.ambito}</p>
-                        <p className="truncate text-xs text-faint">
+                        <p className="line-clamp-2 break-words text-sm font-semibold">{t.negozio || t.ambito}</p>
+                        <p className="line-clamp-2 break-words text-xs text-faint">
                           {new Date(t.data_spesa + "T00:00:00").toLocaleDateString("it-IT", {
                             day: "numeric",
                             month: "short",

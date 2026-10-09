@@ -331,12 +331,12 @@ export default function DettaglioBudgetPage({ params }: { params: Promise<{ cate
                           {g.items.map((t) => (
                             <li key={t.id} className="flex min-h-14 items-center gap-3 px-4 py-2.5 lg:px-5">
                               <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold">{t.negozio || categoria}</p>
+                                <p className="line-clamp-2 break-words text-sm font-semibold">{t.negozio || categoria}</p>
                                 {t.note_spese && (
-                                  <p className="truncate text-xs text-faint">{t.note_spese}</p>
+                                  <p className="line-clamp-2 break-words text-xs text-faint">{t.note_spese}</p>
                                 )}
+                                {!t.confermata && <Pill tone="warn" className="mt-1">da confermare</Pill>}
                               </div>
-                              {!t.confermata && <Pill tone="warn">da confermare</Pill>}
                               <span className="tnum shrink-0 text-sm font-bold">
                                 {formatCurrency(Number(t.importo))}
                               </span>

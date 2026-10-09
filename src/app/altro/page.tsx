@@ -38,10 +38,10 @@ export default function AltroPage() {
             <Card className="flex items-center gap-3 p-4">
               <Avatar id={user?.id ?? "me"} name={profile?.first_name || user?.email || "Profilo"} size={46} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-semibold">
+                <p className="line-clamp-2 break-words text-[15px] font-semibold">
                   {[profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Il tuo profilo"}
                 </p>
-                <p className="truncate text-xs text-faint">{user?.email}</p>
+                <p className="break-all text-xs text-faint">{user?.email}</p>
               </div>
               <Link
                 href="/account"
@@ -130,8 +130,8 @@ function NavRow({
           <Icon className="h-4 w-4" aria-hidden />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">{label}</span>
-          {desc && <span className="block truncate text-xs text-faint">{desc}</span>}
+          <span className="line-clamp-2 break-words text-sm font-semibold">{label}</span>
+          {desc && <span className="line-clamp-2 break-words text-xs text-faint">{desc}</span>}
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 text-faint" aria-hidden />
       </Link>

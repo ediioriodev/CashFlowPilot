@@ -451,7 +451,7 @@ export default function ObiettiviPage() {
                             <Icon className="h-4 w-4" aria-hidden />
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold">{g.nome}</p>
+                            <p className="line-clamp-2 break-words text-sm font-semibold">{g.nome}</p>
                             <p className="text-xs text-faint">il {g.autoGiorno} di ogni mese</p>
                           </div>
                           <span className="tnum shrink-0 text-sm font-bold">
